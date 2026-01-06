@@ -16,29 +16,6 @@ from os import getenv
 
 
 class Database_Handler:
-    """
-    A class to handle database operations such as connecting, executing queries, and managing transactions.
-    
-    Attributes:
-        __logger (Crawly_Logger): A logger instance for logging database operations and errors.
-        __connection (MySQLConnection): The MySQL connection object used to interact with the database.
-        __cursor (Optional[MySQLCursor]): The MySQL cursor object used to execute database queries.
-        __sanitizer (Data_Sanitizer): An instance of Data_Sanitizer for sanitizing user input data to prevent SQL injection attacks and ensure safe string usage.
-
-    Methods:
-        __connect() -> MySQLConnection: Establishes a connection to the MySQL database.
-        _execute(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> None: Executes a SQL query with optional parameters.
-        _closeCursor() -> None: Closes the current cursor if it exists.
-        _commit() -> None: Commits the current transaction to the database.
-        _fetchAll() -> List[RowType]: Fetches all rows from the last executed query.
-        _closeConnection() -> None: Closes the database connection.
-        __sanitizeParameters(parameters: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]: Sanitizes the parameters using the Data_Sanitizer instance.
-        getData(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> List[RowType]: Fetches data from the database by executing a query with optional parameters.
-        postData(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> bool: Posts data to the database by executing a query with optional parameters.
-        updateData(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> bool: Updates data in the database by executing a query with optional parameters.
-        deleteData(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> bool: Deletes data from the database by executing a query with optional parameters.
-        createTable(query: str, parameters: Optional[Tuple[Any, ...]] = None) -> bool: Creates a table in the database by executing a query with optional parameters.
-    """
     __logger: Crawly_Logger
     """
     A logger instance for logging database operations and errors.
@@ -395,23 +372,6 @@ class Database_Handler:
     ) -> bool:
         """
         Deleting data from the database by executing a query with optional parameters.
-
-        Args:
-            query (str): The SQL query to execute.
-            parameters (Optional[Tuple[Any, ...]]): Parameters for the SQL query.
-
-        Returns:
-            bool: True if the operation is successful, False otherwise.
-        """
-        return self._manipulateData(query, parameters)
-
-    def createTable(
-        self,
-        query: str,
-        parameters: Optional[Tuple[Any, ...]] = None
-    ) -> bool:
-        """
-        Creating a table in the database by executing a query with optional parameters.
 
         Args:
             query (str): The SQL query to execute.
