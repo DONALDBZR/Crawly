@@ -113,15 +113,9 @@ class DatabaseConnectionPool:
         """
         Close all connections in the pool.
         
-        This method should be called when the application is shutting down
-        to ensure all database connections are properly closed.
+        This method should be called when the application is shutting down to ensure all database connections are properly closed.
         
         Note:
-            MySQLConnectionPool doesn't have a built-in close method,
-            so we log the intent. Individual connections are returned
-            to the pool automatically when closed.
+            MySQLConnectionPool doesn't have a built-in close method, so we log the intent.  Individual connections are returned to the pool automatically when closed.
         """
-        self.getLogger().inform(
-            f"Connection pool '{self.getConfig().pool_name}' is being shut down. "
-            "All connections will be closed when returned to the pool."
-        )
+        self.getLogger().inform(f"The pool is being shut down.  All connections will be closed when returned to the pool. - Pool Name: {self.getConfig().pool_name}")
