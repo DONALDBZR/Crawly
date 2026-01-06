@@ -5,14 +5,16 @@ Author:
     Darkness4869
 """
 
-from mysql.connector.connection import MySQLConnection
+from mysql.connector.pooling import PooledMySQLConnection
 from mysql.connector.cursor import MySQLCursor
 from Models.Logger import Crawly_Logger
 from mysql.connector.types import RowType
 from typing import Tuple, Any, List, Optional
-from mysql.connector import connect, Error as Relational_Database_Error
+from mysql.connector import Error as Relational_Database_Error
+from Models.Sanitizer import Sanitizer
 from Models.DataSanitizer import Data_Sanitizer
-from os import getenv
+from Models.DatabaseConfigurator import Database_Configurator
+from Models.DatabaseConnectionPool import Database_Connection_Pool
 
 
 class Database_Handler:
@@ -20,42 +22,54 @@ class Database_Handler:
     """
     A logger instance for logging database operations and errors.
     """
-    __connection: MySQLConnection
+    __connection_pool: Database_Connection_Pool
     """
-    The MySQL connection object used to interact with the database.
+    The database connection pool for managing connections efficiently.
+    """
+    __connection: Optional[PooledMySQLConnection]
+    """
+    The current pooled MySQL connection object used to interact with the database.
     """
     __cursor: Optional[MySQLCursor]
     """
     The MySQL cursor object used to execute database queries.
     """
-    __sanitizer: Data_Sanitizer
+    __sanitizer: Sanitizer
     """
-    An instance of Data_Sanitizer for sanitizing user input data to prevent SQL injection attacks and ensure safe string usage.
+    An instance of Sanitizer for sanitizing user input data to prevent SQL injection attacks and ensure safe string usage.
     """
 
     def __init__(
         self,
+        config: Database_Configurator,
         logger: Optional[Crawly_Logger] = None,
-        sanitizer: Optional[Data_Sanitizer] = None
+        sanitizer: Optional[Sanitizer] = None,
+        connection_pool: Optional[Database_Connection_Pool] = None
     ):
         """
-        Initializing a `Database_Handler` instance with optional logger and data sanitizer.
+        Initializing a `Database_Handler` instance with configuration and optional dependencies.
 
         Procedures:
             1. If a `logger` is not provided, a default `Crawly_Logger` is created and used.
-            2. Establishes a connection to the MySQL database.
-            3. Initializes the cursor to `None`.
-            4. If a `sanitizer` is not provided, a default `Data_Sanitizer` is created and used.
+            2. If a `connection_pool` is not provided, creates a new pool using the configuration.
+            3. Initializes the connection to `None` (connections are obtained from pool as needed).
+            4. Initializes the cursor to `None`.
+            5. If a `sanitizer` is not provided, a default `Data_Sanitizer` is created and used.
 
         Parameters:
+            config (Database_Configurator): Database configuration object.
             logger (Optional[Crawly_Logger]): A logger instance for logging database operations and errors.
-            sanitizer (Optional[Data_Sanitizer]): An instance of `Data_Sanitizer` for sanitizing user input data.
+            sanitizer (Optional[Sanitizer]): An instance of `Sanitizer` for sanitizing user input data.
+            connection_pool (Optional[Database_Connection_Pool]): An existing connection pool to use.
 
         Raises:
-            Relational_Database_Error: If the connection to the database fails.
+            Relational_Database_Error: If the connection pool creation fails.
         """
         self.setLogger(logger or Crawly_Logger(__name__))
-        self.setConnection(self.__connect())
+        self.setConnectionPool(
+            connection_pool or Database_Connection_Pool(config, self.getLogger())
+        )
+        self.setConnection(None)
         self.setCursor(None)
         self.setSanitizer(sanitizer or Data_Sanitizer())
 
@@ -65,10 +79,16 @@ class Database_Handler:
     def setLogger(self, logger: Crawly_Logger) -> None:
         self.__logger = logger
 
-    def getConnection(self) -> MySQLConnection:
+    def getConnectionPool(self) -> Database_Connection_Pool:
+        return self.__connection_pool
+
+    def setConnectionPool(self, connection_pool: Database_Connection_Pool) -> None:
+        self.__connection_pool = connection_pool
+
+    def getConnection(self) -> Optional[PooledMySQLConnection]:
         return self.__connection
 
-    def setConnection(self, connection: MySQLConnection) -> None:
+    def setConnection(self, connection: Optional[PooledMySQLConnection]) -> None:
         self.__connection = connection
 
     def getCursor(self) -> Optional[MySQLCursor]:
@@ -77,10 +97,10 @@ class Database_Handler:
     def setCursor(self, cursor: Optional[MySQLCursor]) -> None:
         self.__cursor = cursor
 
-    def getSanitizer(self) -> Data_Sanitizer:
+    def getSanitizer(self) -> Sanitizer:
         return self.__sanitizer
 
-    def setSanitizer(self, sanitizer: Data_Sanitizer) -> None:
+    def setSanitizer(self, sanitizer: Sanitizer) -> None:
         self.__sanitizer = sanitizer
 
     def __sanitizeParameters(self, parameters: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]:
@@ -104,40 +124,22 @@ class Database_Handler:
             self.getLogger().error(f"The database handler has failed to sanitize the parameters. - Parameters: {parameters} - Error: {error}")
             raise Relational_Database_Error(str(error))
 
-    def connect(self) -> MySQLConnection:
+    def __getConnectionFromPool(self) -> PooledMySQLConnection:
         """
-        Establishing a connection to the MySQL database.
+        Obtaining a connection from the connection pool.
 
         Returns:
-            (MySQLConnection): The established MySQL connection object.
-
-        Raises:
-            Relational_Database_Error: If the connection attempt fails.
-        """
-        return self.__connect()
-
-    def __connect(self) -> MySQLConnection:
-        """
-        Establishing a connection to the MySQL database.
-
-        Returns:
-            (MySQLConnection): The established MySQL connection object.
+            (PooledMySQLConnection): A pooled MySQL connection object.
 
         Raises:
             Relational_Database_Error: If the connection attempt fails.
         """
         try:
-            connection: MySQLConnection = connect(
-                host=getenv("DB_HOST", "At least you tried."),
-                user=getenv("DB_USER", "You don't know me."),
-                password=getenv("DB_PASSWORD", "What's my password?"),
-                database=getenv("DB_NAME", "I'm high on life."),
-                use_pure=True
-            ) # type: ignore
-            self.getLogger().inform("The application has successfully connected to the database.")
+            connection: PooledMySQLConnection = self.getConnectionPool().getConnection()
+            self.getLogger().inform("Successfully obtained connection from pool.")
             return connection
         except Relational_Database_Error as error:
-            self.getLogger().error(f"The application has failed to connect to the database. - Error: {error}")
+            self.getLogger().error(f"Failed to obtain connection from pool. Error: {error}")
             raise error
 
     def __ensureConnection(self) -> None:
@@ -145,28 +147,27 @@ class Database_Handler:
         Ensuring that the database connection is active.
 
         Procedures:
-            1. If there is no existing connection, a new connection is established.
-            2. If the existing connection is inactive, it attempts to reconnect up to 3 times with a 2-second delay between attempts.
-            3. Logs the outcome of the connection check and reconnection attempts.
+            1. If there is no existing connection, obtains one from the pool.
+            2. If the existing connection is inactive, closes it and obtains a new one from the pool.
+            3. Logs the outcome of the connection check.
 
         Returns:
             None
 
         Raises:
-            Relational_Database_Error: If the reconnection attempt fails.
+            Relational_Database_Error: If obtaining a connection from the pool fails.
         """
         if self.getConnection() is None:
-            self.setConnection(self.__connect())
-            self.getLogger().inform("The database handler has successfully reconnected to the database.")
+            self.setConnection(self.__getConnectionFromPool())
+            self.getLogger().inform("Successfully obtained new connection from pool.")
             return
-        if not self.getConnection().is_connected():
-            self.getConnection().reconnect(
-                attempts=3,
-                delay=2
-            )
-            self.getLogger().inform("The database handler has successfully reconnected to the database.")
+        if not self.getConnection().is_connected():  # type: ignore
+            self.getLogger().warn("Connection is not active. Returning to pool and obtaining new connection.")
+            self.__returnConnectionToPool()
+            self.setConnection(self.__getConnectionFromPool())
+            self.getLogger().inform("Successfully obtained replacement connection from pool.")
             return
-        self.getLogger().inform("The database handler is already connected to the database.")
+        self.getLogger().inform("Database connection is active and ready.")
 
     def _execute(
         self,
@@ -230,11 +231,14 @@ class Database_Handler:
         Raises:
             Relational_Database_Error: If the commit operation fails.
         """
+        connection = self.getConnection()
+        if connection is None:
+            raise Relational_Database_Error("No active connection to commit.")
         try:
-            self.getConnection().commit()
+            connection.commit()
             self.getLogger().inform("The transaction has been successfully committed.")
         except Relational_Database_Error as error:
-            self.getConnection().rollback()
+            connection.rollback()
             self.getLogger().error(f"The database handler has failed to commit the transaction, hence, the trasaction will roolback. - Error: {error}")
             raise error
 
@@ -258,22 +262,41 @@ class Database_Handler:
             self.getLogger().error(f"The database handler has failed to fetch all rows. - Error: {error}")
             raise error
 
+    def __returnConnectionToPool(self) -> None:
+        """
+        Returning the current connection to the pool.
+
+        This method closes the current connection, which returns it to the pool.
+        
+        Raises:
+            Relational_Database_Error: If the connection closing operation fails.
+        """
+        if self.getConnection() is None:
+            return
+        try:
+            self.getConnection().close()  # type: ignore
+            self.getLogger().inform("Connection returned to pool.")
+            self.setConnection(None)
+        except Relational_Database_Error as error:
+            self.getLogger().error(f"Failed to return connection to pool. Error: {error}")
+            self.setConnection(None)
+            raise error
+
     def closeConnection(self) -> None:
         """
-        Closing the database connection.
+        Closing the current database connection and returning it to the pool.
 
         Raises:
             Relational_Database_Error: If the connection closing operation fails.
         """
-        if not self.getConnection().is_connected():
-            self.getLogger().warn("The database connection is already closed.")
+        if self.getConnection() is None:
+            self.getLogger().warn("No active connection to close.")
             return
-        try:
-            self.getConnection().close()
-            self.getLogger().inform("The database handler has successfully closed the connection.")
-        except Relational_Database_Error as error:
-            self.getLogger().error(f"The database handler has failed to close the connection. - Error: {error}")
-            raise error
+        if not self.getConnection().is_connected():  # type: ignore
+            self.getLogger().warn("The database connection is already closed.")
+            self.setConnection(None)
+            return
+        self.__returnConnectionToPool()
 
     def getData(
         self,
