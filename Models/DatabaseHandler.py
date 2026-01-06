@@ -199,7 +199,7 @@ class Database_Handler:
         """
         Executing a query with optional parameters on the database connection.
 
-        This method does the following:
+        Procedures:
             1. Ensures a database connection is present.
             2. If a connection is not present, it establishes a new connection.
             3. If the connection is inactive, it attempts to reconnect up to 3 times with a 2-second delay between attempts.
@@ -249,8 +249,6 @@ class Database_Handler:
     def _commit(self) -> None:
         """
         Committing the current database transaction.
-
-        This method commits the current transaction.  If an error occurs during the commit operation, the transaction is rolled back.
 
         Raises:
             Relational_Database_Error: If the commit operation fails.
