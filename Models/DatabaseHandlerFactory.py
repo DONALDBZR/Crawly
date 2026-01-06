@@ -159,21 +159,24 @@ class Database_Handler_Factory:
             config=test_config,
             logger=test_logger
         )
-    
+
     @classmethod
     def shutdown(cls) -> None:
         """
-        Shutdown the factory and close the shared connection pool.
-        
-        This should be called during application shutdown to ensure
-        all resources are properly cleaned up.
+        Shutting down the factory and close the shared connection pool.
+
+        Procedures:
+            1. If a shared connection pool exists, close it.
+            2. Log the shutdown event.
+
+        Returns:
+            None
         """
         if cls.__default_pool is not None:
             cls.__default_pool.closePool()
             cls.__default_pool = None
-        
         if cls.__default_logger is not None:
-            cls.__default_logger.inform("Database_Handler_Factory shut down.")
+            cls.__default_logger.inform("The factory has been shutdown.")
     
     @classmethod
     def get_shared_pool(cls) -> Optional[Database_Connection_Pool]:
