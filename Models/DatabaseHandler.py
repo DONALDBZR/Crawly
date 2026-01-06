@@ -133,6 +133,9 @@ class Database_Handler:
 
         Returns:
             (MySQLConnection): The established MySQL connection object.
+
+        Raises:
+            Relational_Database_Error: If the connection attempt fails.
         """
         return self.__connect()
 
