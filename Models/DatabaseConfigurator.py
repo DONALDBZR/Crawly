@@ -10,7 +10,7 @@ from os import getenv
 
 
 @dataclass
-class DatabaseConfig:
+class Database_Configurator:
     """
     It encapsulates all database connection settings, removing direct environment variable access from the `Database_Handler`.
     
@@ -34,16 +34,16 @@ class DatabaseConfig:
     use_pure: bool = True
     
     @classmethod
-    def from_environment(cls) -> "DatabaseConfig":
+    def from_environment(cls) -> "Database_Configurator":
         """
-        Creating a `DatabaseConfig` instance from environment variables.
+        Creating a `Database_Configurator` instance from environment variables.
 
         Procedures:
             1. Reads database configuration parameters from environment variables.
-            2. Constructs and returns a `DatabaseConfig` instance with the retrieved values.
+            2. Constructs and returns a `Database_Configurator` instance with the retrieved values.
 
         Returns:
-            DatabaseConfig: Configuration instance populated from environment variables.
+            Database_Configurator: Configuration instance populated from environment variables.
 
         Raises:
             ValueError: If required environment variables are missing.
