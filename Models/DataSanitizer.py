@@ -6,9 +6,10 @@ Author:
 """
 from typing import List, Any, Optional
 from re import match
+from Models.Sanitizer import Sanitizer
 
 
-class Data_Sanitizer:
+class Data_Sanitizer(Sanitizer):
     """
     A class to sanitize user input data to prevent SQL injection attacks and ensure safe string usage.
 
