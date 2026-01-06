@@ -285,8 +285,6 @@ class Database_Handler:
         """
         Closing the database connection.
 
-        This method closes the established database connection.  If the connection is already closed, it logs a warning message.
-
         Raises:
             Relational_Database_Error: If the connection closing operation fails.
         """
