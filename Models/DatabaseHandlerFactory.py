@@ -63,7 +63,7 @@ class Database_Handler_Factory:
             return
         cls.__default_pool = Database_Connection_Pool(cls.__default_config, cls.__default_logger)
         cls.__default_logger.inform("The factory initialized with shared connection pool.")
-    
+
     @classmethod
     def create(
         cls,
@@ -93,17 +93,11 @@ class Database_Handler_Factory:
             ValueError: If configuration is invalid.
         """
         if cls.__default_config is None:
-            raise RuntimeError(
-                "Database_Handler_Factory has not been initialized. "
-                "Call Database_Handler_Factory.initialize() first."
-            )
-        
+            raise RuntimeError("The factory has not been initialized.")
         handler_config = config or cls.__default_config
         handler_logger = logger or cls.__default_logger
         handler_sanitizer = sanitizer or Data_Sanitizer()
-        
         if use_shared_pool and cls.__default_pool is not None:
-            # Use shared pool
             handler = Database_Handler(
                 config=handler_config,
                 logger=handler_logger,
@@ -111,16 +105,13 @@ class Database_Handler_Factory:
                 connection_pool=cls.__default_pool
             )
         else:
-            # Create new pool for this handler
             handler = Database_Handler(
                 config=handler_config,
                 logger=handler_logger,
                 sanitizer=handler_sanitizer
             )
-        
         if handler_logger:
-            handler_logger.inform("Created new Database_Handler instance.")
-        
+            handler_logger.inform("Created new `Database_Handler` instance.")
         return handler
     
     @classmethod
