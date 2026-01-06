@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 
-class ISanitizer(ABC):
+class Sanitizer(ABC):
     """
     It defines the contract that all sanitizer implementations must follow, allowing the `Database_Handler` to depend on an abstraction rather than a concrete implementation.
     
