@@ -94,13 +94,10 @@ class DatabaseConnectionPool:
     def getConnection(self) -> PooledMySQLConnection:
         """
         Get a connection from the pool.
-        
-        This method retrieves an available connection from the pool.
-        If all connections are in use, it will wait until one becomes available.
-        
+
         Returns:
             PooledMySQLConnection: A pooled MySQL connection.
-            
+
         Raises:
             Relational_Database_Error: If unable to get a connection from the pool.
         """
@@ -109,11 +106,9 @@ class DatabaseConnectionPool:
             self.getLogger().inform("Successfully retrieved connection from pool.")
             return connection
         except Relational_Database_Error as error:
-            self.getLogger().error(
-                f"Failed to get connection from pool. Error: {error}"
-            )
+            self.getLogger().error(f"A connection cannot be retrieved from the pool. - Error: {error}")
             raise error
-    
+
     def closePool(self) -> None:
         """
         Close all connections in the pool.
