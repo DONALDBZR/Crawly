@@ -1,0 +1,158 @@
+"""
+It is the configuration module for the Crawly application logging system.
+
+Authors:
+    Darkness4869
+"""
+from logging import Logger, getLogger, FileHandler, Formatter, DEBUG, Handler
+from typing import List, Optional
+from os import makedirs, getenv
+from os.path import join
+from dotenv import load_dotenv
+
+
+class Logger_Configurator:
+    """
+    A class to configure logging settings for the Crawly application.
+
+    This class allows customization of log file location, name, format, encoding, file mode, and supports additional handlers.
+
+    Attributes:
+        directory (str): Directory where log files are stored.
+        filename (str): Name of the log file.
+        log_format (str): Format string for log messages.
+        encoding (str): Encoding for the log file.
+        file_mode (str): File mode for opening the log file.
+        handlers (List[Handler]): List of additional logging handlers to be added to the logger.
+
+    Methods:
+        configure(logger_name: str) -> Logger:
+            Configuring and retrieving a logger instance based on the stored settings.
+    """
+    __directory: str
+    """
+    Directory where log files are stored.
+    """
+    __filename: str
+    """
+    Name of the log file.
+    """
+    __format: str
+    """
+    Format of the log messages.
+    """
+    __encoding: str
+    """
+    Encoding used for the log file.
+    """
+    __file_mode: str
+    """
+    Mode in which the log file is opened.
+    """
+    __handlers: List[Handler]
+    """
+    List of additional logging handlers to be added to the logger.
+    """
+
+    def __init__(
+        self,
+        directory: str = "./Logs",
+        filename: str = "Crawly.log",
+        format: str = "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s",
+        encoding: str = "utf-8",
+        file_mode: str = "a",
+        handlers: Optional[List[Handler]] = None
+    ):
+        """
+        Initializing the Logger_Configurator instance.
+
+        Procedures:
+            1. Load environment variables from a `.env` file if present.
+            2. Set the log directory, filename, format, encoding, file mode, and additional handlers based on provided arguments or environment variables.
+            3. Ensure the log directory exists by creating it if necessary.
+
+        Parameters:
+            directory (str): Directory where log files are stored. Defaults to "./Logs".
+            filename (str): Name of the log file. Defaults to "Crawly.log".
+            format (str): Format string for log messages. Defaults to "[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s".
+            encoding (str): Encoding for the log file. Defaults to "utf-8".
+            file_mode (str): File mode for opening the log file. Defaults to "a" (append mode).
+            handlers (Optional[List[Handler]]): List of additional logging handlers to be added to the logger. Defaults to None.
+        """
+        load_dotenv()
+        self.setDirectory(getenv("LOG_DIRECTORY", directory))
+        self.setFilename(getenv("LOG_FILE_NAME", filename))
+        self.setFormat(format)
+        self.setEncoding(encoding)
+        self.setFileMode(file_mode)
+        self.setHandlers(handlers or [])
+        makedirs(self.getDirectory(), exist_ok=True)
+
+    def getDirectory(self) -> str:
+        return self.__directory
+
+    def setDirectory(self, directory: str) -> None:
+        self.__directory = directory
+
+    def getFilename(self) -> str:
+        return self.__filename
+
+    def setFilename(self, filename: str) -> None:
+        self.__filename = filename
+
+    def getFormat(self) -> str:
+        return self.__format
+
+    def setFormat(self, format: str) -> None:
+        self.__format = format
+
+    def getEncoding(self) -> str:
+        return self.__encoding
+
+    def setEncoding(self, encoding: str) -> None:
+        self.__encoding = encoding
+
+    def getFileMode(self) -> str:
+        return self.__file_mode
+
+    def setFileMode(self, file_mode: str) -> None:
+        self.__file_mode = file_mode
+
+    def getHandlers(self) -> List[Handler]:
+        return self.__handlers
+
+    def setHandlers(self, handlers: List[Handler]) -> None:
+        self.__handlers = handlers
+
+    def configure(self, logger_name: str) -> Logger:
+        """
+        Configuring and retrieving a logger instance based on the stored settings.
+
+        This method gets a logger by its name.  If the logger has already been configured with handlers, it is returned immediately to prevent duplicate handler attachment.
+
+        Otherwise, it creates a new `FileHandler` using the path, mode, and encoding specified in this configurator instance.  It also attaches any additional handlers provided during initialization.
+
+        Args:
+            logger_name (str): The name of the logger to configure, typically the `__name__` of the calling module.
+
+        Returns:
+            Logger: The configured logger instance, ready for use.
+        """
+        logger: Logger = getLogger(logger_name)
+        logger.setLevel(DEBUG)
+        if logger.hasHandlers():
+            return logger
+        file_handler: FileHandler = FileHandler(
+            join(
+                self.getDirectory(),
+                self.getFilename()
+            ),
+            mode=self.getFileMode(),
+            encoding=self.getEncoding()
+        )
+        formatter: Formatter = Formatter(self.getFormat())
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+        for handler in self.getHandlers():
+            logger.addHandler(handler)
+        return logger
