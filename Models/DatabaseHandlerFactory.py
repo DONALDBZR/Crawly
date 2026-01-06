@@ -73,8 +73,13 @@ class Database_Handler_Factory:
         use_shared_pool: bool = True
     ) -> Database_Handler:
         """
-        Create a new Database_Handler instance.
-        
+        Creating a new `Database_Handler` instance.
+
+        Procedures:
+            1. Use the factory's default configuration and logger if none are provided.
+            2. Use the factory's shared connection pool if use_shared_pool is True.
+            3. Create and return a new `Database_Handler` instance.
+
         Parameters:
             config (Optional[Database_Configurator]): Configuration for this handler.
                 If None, uses the factory's default configuration.
@@ -84,10 +89,10 @@ class Database_Handler_Factory:
                 If None, uses default Data_Sanitizer.
             use_shared_pool (bool): Whether to use the factory's shared connection pool.
                 If False, a new pool will be created for this handler.
-        
+
         Returns:
             Database_Handler: A configured database handler instance.
-        
+
         Raises:
             RuntimeError: If factory has not been initialized.
             ValueError: If configuration is invalid.
