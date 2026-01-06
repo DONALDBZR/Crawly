@@ -126,18 +126,18 @@ class Database_Handler:
         """
         Establishing a connection to the MySQL database.
 
-        Raises:
-            Relational_Database_Error: If the connection fails.
-
         Returns:
             (MySQLConnection): The established MySQL connection object.
+
+        Raises:
+            Relational_Database_Error: If the connection attempt fails.
         """
         try:
             connection: MySQLConnection = connect(
-                host=self.getEnv().getDatabaseHost(),
-                user=self.getEnv().getDatabaseUsername(),
-                password=self.getEnv().getDatabasePassword(),
-                database=self.getEnv().getDatabaseSchema(),
+                host=getenv("DB_HOST", "At least you tried."),
+                user=getenv("DB_USER", "You don't know me."),
+                password=getenv("DB_PASSWORD", "What's my password?"),
+                database=getenv("DB_NAME", "I'm high on life."),
                 use_pure=True
             ) # type: ignore
             self.getLogger().inform("The application has successfully connected to the database.")
