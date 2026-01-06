@@ -165,9 +165,18 @@ class Database_Handler:
 
     def __ensureConnection(self) -> None:
         """
-        Ensuring the database connection is active.
+        Ensuring that the database connection is active.
 
-        This method checks if the database connection is active.  If no connection is present, it establishes a new connection.  If the connection is inactive, it attempts to reconnect up to 3 times with a 2-second delay between attempts.  Logs the outcome of the connection check and reconnection attempts.
+        Procedures:
+            1. If there is no existing connection, a new connection is established.
+            2. If the existing connection is inactive, it attempts to reconnect up to 3 times with a 2-second delay between attempts.
+            3. Logs the outcome of the connection check and reconnection attempts.
+
+        Returns:
+            None
+
+        Raises:
+            Relational_Database_Error: If the reconnection attempt fails.
         """
         if self.getConnection() is None:
             self.setConnection(self.__connect())
