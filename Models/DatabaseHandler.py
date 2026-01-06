@@ -306,7 +306,7 @@ class Database_Handler:
         """
         Fetching data from the database by executing a query with optional parameters.
 
-        This method does the following:
+        Procedures:
             1. Executes the provided SQL query with optional parameters.
             2. Returns a list of rows returned by the query.
             3. Returning an empty list when the execution fails.
@@ -334,7 +334,7 @@ class Database_Handler:
         """
         Executing the provided SQL query with optional parameters and committing the changes.
 
-        This method does the following:
+        Procedures:
             1. Executes the provided SQL query with optional parameters.
             2. Commits the changes.
             3. Returns True if the operation is successful, False otherwise.
