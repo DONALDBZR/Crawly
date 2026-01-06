@@ -12,7 +12,7 @@ from Models.Logger import Crawly_Logger
 from typing import Optional
 
 
-class DatabaseConnectionPool:
+class Database_Connection_Pool:
     """
     It abstracts connection pooling logic, providing a more robust solution for microservices that need to handle multiple concurrent database operations efficiently.
     
