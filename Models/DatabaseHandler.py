@@ -108,18 +108,16 @@ class Database_Handler:
 
     def __sanitizeParameters(self, parameters: Optional[Tuple[Any, ...]]) -> Optional[Tuple[Any, ...]]:
         """
-        Sanitizing a tuple of parameters using the `Data_Sanitizer` instance.
+        Sanitizing the parameters using the `Data_Sanitizer` instance.
 
-        This method processes each parameter in the provided tuple through the `Data_Sanitizer`'s `sanitize` method, ensuring that all parameters are safe for use in database operations.  If the parameter tuple is `None`, it returns `None`.
-
-        Args:
-            parameters (Optional[Tuple[Any, ...]]): A tuple of parameters to be sanitized.
+        Parameters:
+            parameters (Optional[Tuple[Any, ...]]): The parameters to sanitize.
 
         Returns:
-            Optional[Tuple[Any, ...]]: A tuple of sanitized parameters, or `None` if input is `None`.
+            Optional[Tuple[Any, ...]]: The sanitized parameters.
 
         Raises:
-            Relational_Database_Error: If any parameter fails the sanitization process.
+            Relational_Database_Error: If sanitization fails.
         """
         try:
             if parameters is None:
