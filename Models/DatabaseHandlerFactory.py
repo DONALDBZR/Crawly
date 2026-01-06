@@ -118,7 +118,7 @@ class Database_Handler_Factory:
         if handler_logger:
             handler_logger.inform("Created new `Database_Handler` instance.")
         return handler
-    
+
     @classmethod
     def create_for_testing(
         cls,
@@ -129,18 +129,20 @@ class Database_Handler_Factory:
         pool_size: int = 2
     ) -> Database_Handler:
         """
-        Create a Database_Handler configured for testing.
-        
-        This convenience method creates a handler with test-specific configuration
-        and does not use the shared pool.
-        
+        Creating a `Database_Handler` configured for testing.
+
+        Procedures:
+            1. Create a `Database_Configurator` with test parameters.
+            2. Create a `Crawly_Logger` for testing.
+            3. Create and return a `Database_Handler` instance with the test configuration and logger.
+
         Parameters:
             host (str): Database host for testing.
             user (str): Database user for testing.
             password (str): Database password for testing.
             database (str): Database name for testing.
             pool_size (int): Size of the connection pool for testing.
-        
+
         Returns:
             Database_Handler: A handler configured for testing.
         """
@@ -152,9 +154,7 @@ class Database_Handler_Factory:
             pool_name="test_pool",
             pool_size=pool_size
         )
-        
-        test_logger = Crawly_Logger("TestDatabaseHandler")
-        
+        test_logger = Crawly_Logger("Test_Database_Handler")
         return Database_Handler(
             config=test_config,
             logger=test_logger
