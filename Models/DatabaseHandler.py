@@ -61,6 +61,22 @@ class Database_Handler:
         logger: Optional[Crawly_Logger] = None,
         sanitizer: Optional[Data_Sanitizer] = None
     ):
+        """
+        Initializing a `Database_Handler` instance with optional logger and data sanitizer.
+
+        Procedures:
+            1. If a `logger` is not provided, a default `Crawly_Logger` is created and used.
+            2. Establishes a connection to the MySQL database.
+            3. Initializes the cursor to `None`.
+            4. If a `sanitizer` is not provided, a default `Data_Sanitizer` is created and used.
+
+        Parameters:
+            logger (Optional[Crawly_Logger]): A logger instance for logging database operations and errors.
+            sanitizer (Optional[Data_Sanitizer]): An instance of `Data_Sanitizer` for sanitizing user input data.
+
+        Raises:
+            Relational_Database_Error: If the connection to the database fails.
+        """
         self.setLogger(logger or Crawly_Logger(__name__))
         self.setConnection(self.__connect())
         self.setCursor(None)
