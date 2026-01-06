@@ -177,38 +177,7 @@ class Database_Handler_Factory:
             cls.__default_pool = None
         if cls.__default_logger is not None:
             cls.__default_logger.inform("The factory has been shutdown.")
-    
+
     @classmethod
     def get_shared_pool(cls) -> Optional[Database_Connection_Pool]:
-        """
-        Get the shared connection pool.
-        
-        Returns:
-            Optional[Database_Connection_Pool]: The shared pool, or None if not initialized.
-        """
         return cls.__default_pool
-
-
-# Convenience function for simple use cases
-def create_database_handler(
-    config: Optional[Database_Configurator] = None
-) -> Database_Handler:
-    """
-    Convenience function to create a Database_Handler.
-    
-    If the factory is initialized, uses the factory.
-    Otherwise, creates a handler directly.
-    
-    Parameters:
-        config (Optional[Database_Configurator]): Configuration for the handler.
-            If None, uses environment variables.
-    
-    Returns:
-        Database_Handler: A configured database handler.
-    """
-    try:
-        return Database_Handler_Factory.create(config=config)
-    except RuntimeError:
-        # Factory not initialized, create handler directly
-        handler_config = config or Database_Configurator.from_environment()
-        return Database_Handler(config=handler_config)
