@@ -1,9 +1,9 @@
 from __future__ import annotations
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from Models.ScraperStrategy import Scraper_Strategy
 from Errors.Scraper import Scraper_Exception
+from time import sleep
 
 
 class ScraperOrchestrator:
@@ -43,52 +43,50 @@ class ScraperOrchestrator:
 
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes the scraping pipeline using the injected strategy.
-        Returns a standardized JSON response.
+        Executes the scraping process: fetch -> extract -> normalize.
+
+        Procedures:
+            1. Fetches raw content using the strategy.
+            2. Extracts fields from the raw content.
+            3. Normalizes extracted fields into standard schema.
+
+        Parameters:
+            context (Dict[str, Any]): Contextual info for the strategy (e.g., URLs, headers).
+
+        Returns:
+            Dict[str, Any]: Standardized response with meta, data, and error sections.
         """
-        attempts = 0
-        raw: Optional[str] = None
+        attempts: int = 0
+        data: Optional[str] = None
         last_error: Optional[Exception] = None
-
-        while attempts < self._max_attempts:
-            attempts += 1
+        for index in range(0, self._max_attempts, 1):
+            attempts = index
             try:
-                self._log_debug(f"[{self._strategy.identifier()}] Fetch attempt {attempts}")
-                raw = self._strategy.fetch(context)
+                self._log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
+                data = self._strategy.fetch(context)
                 break
-            except Exception as e:  # noqa: BLE001 broad by design to centralize handling
-                last_error = e
-                self._log_error(f"Fetch failed: {e!r}")
-                # Strategy-specific retry decision
-                if not self._strategy.should_retry(e, attempts):
-                    self._log_debug("Strategy advised not to retry.")
-                    return self._error_response("FETCH_ERROR", e, attempts)
-                if attempts >= self._max_attempts:
-                    self._log_debug("Max attempts reached.")
-                    return self._error_response("FETCH_ERROR", e, attempts)
-                # Exponential backoff
-                sleep_secs = self._backoff_base * (2 ** (attempts - 1))
-                self._log_debug(f"Backing off for {sleep_secs:.2f}s before retry...")
-                time.sleep(sleep_secs)
-
-        if raw is None:
-            # Defensive: if loop exits without raw
+            except Exception as error:
+                last_error = error
+                self._log_error(f"The data needed cannot be scraped. - Error: {error!r}")
+                is_allowed: bool = (self._strategy.should_retry(error, attempts + 1) and (attempts + 1 < self._max_attempts))
+                if not is_allowed:
+                    return self._error_response("FETCH_ERROR", error, attempts + 1)
+                delay: float = self._backoff_base * (2 ** attempts)
+                sleep(delay)
+        if data is None:
             return self._error_response("FETCH_ERROR", last_error, attempts)
-
         try:
-            self._log_debug("Extracting fields from raw content...")
-            extracted = self._strategy.extract(raw)
-        except Exception as e:  # noqa: BLE001
-            self._log_error(f"Extract failed: {e!r}")
-            return self._error_response("EXTRACT_ERROR", e, attempts)
-
+            self._log_debug("Extracting fields from data content...")
+            extracted = self._strategy.extract(data)
+        except Exception as error:
+            self._log_error(f"The extraction has failed. - Error: {error!r}")
+            return self._error_response("EXTRACT_ERROR", error, attempts)
         try:
             self._log_debug("Normalizing extracted fields to schema...")
             normalized = self._strategy.normalize(extracted)
-        except Exception as e:  # noqa: BLE001
-            self._log_error(f"Normalize failed: {e!r}")
-            return self._error_response("NORMALIZE_ERROR", e, attempts)
-
+        except Exception as error:
+            self._log_error(f"The normalization has failed. Error: {error!r}")
+            return self._error_response("NORMALIZE_ERROR", error, attempts)
         return self._success_response(normalized, attempts)
 
     # ---- Internal helpers -------------------------------------------------
