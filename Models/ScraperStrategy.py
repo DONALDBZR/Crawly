@@ -10,38 +10,71 @@ class Scraper_Strategy(ABC):
 
     @abstractmethod
     def identifier(self) -> str:
-        """Unique strategy identifier used in metadata and logging."""
+        """
+        Unique ID for the strategy.
+
+        Returns:
+            str: The strategy ID.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def fetch(self, context: Dict[str, Any]) -> str:
         """
-        Retrieve raw content needed for extraction.
+        Retrieves raw content needed for extraction.
 
-        Implementations may use HTTP, files, APIs, etc. Keep network specifics encapsulated
-        inside the strategy. Must return raw text/HTML/JSON as a string.
+        Args:
+            context (Dict[str, Any]): Contextual info for fetching (e.g., URLs, headers).
+
+        Returns:
+            str: The raw content as a string.
+
+        Raises:
+            Exception: On fetch failures.
         """
         raise NotImplementedError
 
     @abstractmethod
     def extract(self, raw: str) -> Dict[str, Any]:
         """
-        Extract target-specific fields from the raw content, returning a dict of fields.
-        Avoid normalizing here — only parse and collect.
+        Extracts target-specific fields from the raw content, returning a dict of fields.
+
+        Args:
+            raw (str): The raw content fetched.
+
+        Returns:
+            Dict[str, Any]: Extracted fields.
+
+        Raises:
+            Exception: On extraction failures.
         """
         raise NotImplementedError
 
     @abstractmethod
     def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Convert extracted fields into the standardized Crawly JSON schema.
-        Output must be a clean JSON-ready dict compliant with downstream expectations.
+        Converts extracted fields into the standardized Crawly JSON schema.
+
+        Args:
+            extracted (Dict[str, Any]): The extracted fields.
+
+        Returns:
+            Dict[str, Any]: Normalized data in standard schema.
+
+        Raises:
+            Exception: On normalization failures.
         """
         raise NotImplementedError
 
     def should_retry(self, exception: Exception, attempt: int) -> bool:
         """
-        Optional retry hook. Orchestrator will call this on failure.
-        Return True to retry, False to abort. Default: up to 3 attempts.
+        Determines if a fetch should be retried based on the exception and attempt count.
+
+        Args:
+            exception (Exception): The exception raised during fetch.
+            attempt (int): The current attempt number (1-based).
+
+        Returns:
+            bool: True to retry, False to abort.
         """
         return attempt < 3
