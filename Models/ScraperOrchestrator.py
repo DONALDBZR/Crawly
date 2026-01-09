@@ -22,11 +22,20 @@ class ScraperOrchestrator:
 
     def __init__(
         self,
-        strategy: ScraperStrategy,
+        strategy: Scraper_Strategy,
         logger: Optional[Any] = None,
         max_attempts: Optional[int] = None,
         backoff_base_seconds: float = 0.5,
     ) -> None:
+        """
+        Initializes the orchestrator with a scraping strategy and optional settings.
+
+        Args:
+            strategy (Scraper_Strategy): The scraping strategy to use.
+            logger (Optional[Any]): Logger instance for debug/error logging.
+            max_attempts (Optional[int]): Max fetch attempts before giving up.
+            backoff_base_seconds (float): Base seconds for exponential backoff between retries.
+        """
         self._strategy = strategy
         self._logger = logger
         self._max_attempts = max_attempts if max_attempts is not None else 3
