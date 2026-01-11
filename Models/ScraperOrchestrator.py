@@ -152,39 +152,34 @@ class Scraper_Orchestrator:
                 raise Scraper_Exception(f"The data cannot be scraped and no more retries are allowed. - Error: {error.message} | Status: {error.code} | Attempts: {attempts}")
             return self._get_data(context, attempts)
 
-    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_data(self, data: Optional[str]) -> None:
         """
-        Executing the scraping process.
+        Validating that fetched data is not None.
 
         Procedures:
-            1. Fetches raw content using the strategy.
-            2. Extracts fields from the raw content.
-            3. Normalizes extracted fields into standard schema.
+            1. Checks if the data is None.
+            2. If None, raises a Scraper_Exception.
 
         Parameters:
-            context (Dict[str, Any]): Contextual info for the strategy (e.g., URLs, headers).
+            data (Optional[str]): The fetched data to validate.
 
         Returns:
-            Dict[str, Any]: Standardized response with meta, data, and error sections.
+            None
+        
+        Raises:
+            Scraper_Exception: If the fetched data is None.
         """
-        attempts: int = 0
-        data: Optional[str] = None
+        if data is not None:
+            return
+        raise Scraper_Exception("Fetched data is None.", 404)
+
+    def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            data: Optional[str] = self._get_data(context)
+            pass
+        except Scraper_Exception as error:
+            pass
         last_error: Optional[Exception] = None
-        for index in range(0, self._max_attempts, 1):
-            attempts = index
-            self._get_data()
-            try:
-                self._log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
-                data = self._strategy.fetch(context)
-                break
-            except Exception as error:
-                last_error = error
-                self._log_error(f"The data needed cannot be scraped. - Error: {error!r}")
-                is_allowed: bool = (self._strategy.should_retry(error, attempts + 1) and (attempts + 1 < self._max_attempts))
-                if not is_allowed:
-                    return self._error_response("FETCH_ERROR", error, attempts + 1)
-                delay: float = self._backoff_base * (2 ** attempts)
-                sleep(delay)
         if data is None:
             return self._error_response("FETCH_ERROR", last_error, attempts)
         try:
