@@ -6,7 +6,7 @@ from Errors.Scraper import Scraper_Exception
 from time import sleep
 
 
-class ScraperOrchestrator:
+class Scraper_Orchestrator:
     """
     Coordinates the scraping flow while staying agnostic of the target website.
 
