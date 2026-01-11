@@ -1,38 +1,48 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from Models.ScraperStrategy import Scraper_Strategy
 from Errors.Scraper import Scraper_Exception
 from time import sleep
+from Models.Logger import Crawly_Logger
 
 
 class Scraper_Orchestrator:
     """
-    Coordinates the scraping flow while staying agnostic of the target website.
+    It orchestrates the scraping process by coordinating fetching, extracting, and normalizing data using a defined strategy.
 
-    Responsibilities:
-    - Drives the Strategy: fetch -> extract -> normalize.
-    - Handles retries using the strategy's `should_retry` guidance.
-    - Produces standardized JSON responses with rich metadata.
+    Attributes:
+        _strategy (Scraper_Strategy): The scraping strategy to use for fetching, extracting, and normalizing data.
+        _logger (Optional[Crawly_Logger]): Logger instance for debug/error logging.
+        _max_attempts (int): Maximum number of fetch attempts before giving up.
+        _backoff_base (float): Base seconds for exponential backoff between retries.
 
-    Non-responsibilities:
-    - Target-specific selectors or parsing logic (delegated to strategies).
-    - Long-term storage or analytics (handled by other microservices).
+    Methods:
+        run(context: Dict[str, Any]) -> Dict[str, Any]: Executes the scraping process: fetch -> extract -> normalize.
+
     """
+    _strategy: Scraper_Strategy
+    """The scraping strategy to use for fetching, extracting, and normalizing data."""
+    _logger: Optional[Crawly_Logger]
+    """Logger instance for debug/error logging."""
+    _max_attempts: int
+    """Maximum number of fetch attempts before giving up."""
+    _backoff_base: float
+    """Base seconds for exponential backoff between retries."""
 
     def __init__(
         self,
         strategy: Scraper_Strategy,
-        logger: Optional[Any] = None,
+        logger: Optional[Crawly_Logger] = None,
         max_attempts: Optional[int] = None,
         backoff_base_seconds: float = 0.5,
     ) -> None:
         """
-        Initializes the orchestrator with a scraping strategy and optional settings.
+        Initializing the orchestrator with a scraping strategy and optional settings.
 
         Args:
             strategy (Scraper_Strategy): The scraping strategy to use.
-            logger (Optional[Any]): Logger instance for debug/error logging.
+            logger (Optional[Crawly_Logger]): Logger instance for debug/error logging.
             max_attempts (Optional[int]): Max fetch attempts before giving up.
             backoff_base_seconds (float): Base seconds for exponential backoff between retries.
         """
@@ -41,9 +51,50 @@ class Scraper_Orchestrator:
         self._max_attempts = max_attempts if max_attempts is not None else 3
         self._backoff_base = backoff_base_seconds
 
+    def __log_debug(self, msg: str) -> None:
+        """
+        Logging a debug message.
+
+        Procedures:
+            1. Checks if a logger is configured.
+            2. Logs the debug message.
+
+        Parameters:
+            msg (str): The debug message to log.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the logger is not properly configured.
+        """
+        if self._logger and hasattr(self._logger, "debug"):
+            self._logger.debug(msg)
+            return
+        raise Exception("Logger is not properly configured for debug logging.")
+
+    def _get_data(
+        self,
+        context: Dict[str, Any],
+        attempts: int = 0
+    ) -> Optional[str]:
+        try:
+            self.__log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
+            response: str = self._strategy.fetch(context)
+            
+        except Exception as error:
+            attempts += 1
+            last_error = error
+            self._log_error(f"The data needed cannot be scraped. - Error: {error!r}")
+            is_allowed: bool = (self._strategy.should_retry(error, attempts) and (attempts < self._max_attempts))
+            if not is_allowed:
+                return self._error_response("FETCH_ERROR", error, attempts + 1)
+            delay: float = self._backoff_base * (2 ** attempts)
+            sleep(delay)
+
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes the scraping process: fetch -> extract -> normalize.
+        Executing the scraping process.
 
         Procedures:
             1. Fetches raw content using the strategy.
@@ -61,6 +112,7 @@ class Scraper_Orchestrator:
         last_error: Optional[Exception] = None
         for index in range(0, self._max_attempts, 1):
             attempts = index
+            self._get_data()
             try:
                 self._log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
                 data = self._strategy.fetch(context)
