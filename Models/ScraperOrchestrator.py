@@ -66,12 +66,12 @@ class Scraper_Orchestrator:
             None
 
         Raises:
-            Exception: If the logger is not properly configured.
+            Scraper_Exception: If the logger is not properly configured.
         """
         if self._logger and hasattr(self._logger, "debug"):
             self._logger.debug(message)
             return
-        raise Exception("Logger is not properly configured for debug logging.")
+        raise Scraper_Exception("Logger is not properly configured for debug logging.")
 
     def __log_info(self, message: str) -> None:
         """
@@ -88,12 +88,12 @@ class Scraper_Orchestrator:
             None
 
         Raises:
-            Exception: If the logger is not properly configured.
+            Scraper_Exception: If the logger is not properly configured.
         """
         if self._logger and hasattr(self._logger, "inform"):
             self._logger.inform(message)
             return
-        raise Exception("Logger is not properly configured for informative logging.")
+        raise Scraper_Exception("Logger is not properly configured for informative logging.")
 
     def __log_error(self, message: str) -> None:
         """
@@ -110,32 +110,47 @@ class Scraper_Orchestrator:
             None
 
         Raises:
-            Exception: If the logger is not properly configured.
+            Scraper_Exception: If the logger is not properly configured.
         """
         if self._logger and hasattr(self._logger, "error"):
             self._logger.error(message)
             return
-        raise Exception("Logger is not properly configured for error logging.")
+        raise Scraper_Exception("Logger is not properly configured for error logging.")
 
     def _get_data(
         self,
         context: Dict[str, Any],
         attempts: int = 0
     ) -> Optional[str]:
+        """
+        Fetching data using the strategy with retry logic.
+
+        Procedures:
+            1. Attempts to fetch data using the strategy.
+            2. If fetching fails, logs the error and checks if a retry is allowed.
+            3. If allowed, waits for an exponential backoff period and retries fetching.
+
+        Parameters:
+            context (Dict[str, Any]): Contextual info for the strategy (e.g., URLs, headers).
+            attempts (int): Current attempt count.
+
+        Returns:
+            Optional[str]: The fetched data if successful, otherwise None.
+        """
         try:
             self.__log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
             response: str = self._strategy.fetch(context)
             self.__log_info(f"Data successfully scraped. - Identifier: {self._strategy.identifier()}")
             return response
-        except Exception as error:
+        except Scraper_Exception as error:
             attempts += 1
-            last_error = error
-            self._log_error(f"The data needed cannot be scraped. - Error: {error!r}")
+            self.__log_error(f"The data needed cannot be scraped. - Error: {error.message} | Status: {error.code} | Attempt: {attempts}")
             is_allowed: bool = (self._strategy.should_retry(error, attempts) and (attempts < self._max_attempts))
-            if not is_allowed:
-                return self._error_response("FETCH_ERROR", error, attempts + 1)
             delay: float = self._backoff_base * (2 ** attempts)
             sleep(delay)
+            if not is_allowed:
+                raise Scraper_Exception(f"The data cannot be scraped and no more retries are allowed. - Error: {error.message} | Status: {error.code} | Attempts: {attempts}")
+            return self._get_data(context, attempts)
 
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """
