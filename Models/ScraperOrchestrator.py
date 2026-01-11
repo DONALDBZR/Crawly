@@ -95,6 +95,28 @@ class Scraper_Orchestrator:
             return
         raise Exception("Logger is not properly configured for informative logging.")
 
+    def __log_error(self, message: str) -> None:
+        """
+        Logging an error message.
+
+        Procedures:
+            1. Checks if a logger is configured.
+            2. Logs the error message.
+
+        Parameters:
+            message (str): The error message to log.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the logger is not properly configured.
+        """
+        if self._logger and hasattr(self._logger, "error"):
+            self._logger.error(message)
+            return
+        raise Exception("Logger is not properly configured for error logging.")
+
     def _get_data(
         self,
         context: Dict[str, Any],
@@ -103,7 +125,8 @@ class Scraper_Orchestrator:
         try:
             self.__log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
             response: str = self._strategy.fetch(context)
-
+            self.__log_info(f"Data successfully scraped. - Identifier: {self._strategy.identifier()}")
+            return response
         except Exception as error:
             attempts += 1
             last_error = error
