@@ -196,7 +196,7 @@ class Scraper_Orchestrator:
         try:
             data: Optional[str] = self._get_data(context)
             self._validate_data(data)
-            extracted: Dict[str, Any] = self._strategy.extract(data)
+            extracted: Dict[str, Any] = self._strategy.extract(str(data))
             normalized: Dict[str, Any] = self._strategy.normalize(extracted)
             self.__log_info("Scraping orchestration process completed successfully.")
             return normalized
@@ -204,50 +204,3 @@ class Scraper_Orchestrator:
             message: str = f"The scraping orchestration has failed."
             self.__log_error(f"{message} - Error: {error.message} | Status: {error.code}")
             return {}
-
-    # ---- Internal helpers -------------------------------------------------
-
-    def _meta(self, status: str, attempts: int) -> Dict[str, Any]:
-        return {
-            "strategy": self._strategy.identifier(),
-            "status": status,
-            "attempts": attempts,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-    def _success_response(self, data: Dict[str, Any], attempts: int) -> Dict[str, Any]:
-        return {
-            "meta": self._meta("success", attempts),
-            "data": data,
-            "error": None,
-        }
-
-    def _error_response(
-        self, code: str, error: Optional[Exception], attempts: int
-    ) -> Dict[str, Any]:
-        err_payload = None
-        if error is not None:
-            err_payload = {
-                "code": code,
-                "message": str(error),
-                "type": error.__class__.__name__,
-            }
-        return {
-            "meta": self._meta("error", attempts),
-            "data": None,
-            "error": err_payload,
-        }
-
-    def _log_debug(self, msg: str) -> None:
-        if self._logger and hasattr(self._logger, "debug"):
-            try:
-                self._logger.debug(msg)
-            except Exception:
-                pass
-
-    def _log_error(self, msg: str) -> None:
-        if self._logger and hasattr(self._logger, "error"):
-            try:
-                self._logger.error(msg)
-            except Exception:
-                pass
