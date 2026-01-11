@@ -17,11 +17,16 @@ from Models.DataSanitizer import Data_Sanitizer
 class Database_Handler_Factory:
     """
     It simplifies the creation of database handlers with appropriate configuration and shared resources like connection pools.
-    
+
     Attributes:
         __default_pool (Optional[Database_Connection_Pool]): Shared connection pool.
         __default_config (Optional[Database_Configurator]): Default configuration.
         __default_logger (Optional[Crawly_Logger]): Default logger.
+
+    Methods:
+        initialize: Initializes the factory with default configuration and resources.
+        create: Creates a new `Database_Handler` instance.
+        shutdown: Shuts down the factory and closes the shared connection pool.
     """
     __default_pool: Optional[Database_Connection_Pool] = None
     """Shared connection pool for all handlers created by this factory."""
@@ -118,47 +123,6 @@ class Database_Handler_Factory:
         if handler_logger:
             handler_logger.inform("Created new `Database_Handler` instance.")
         return handler
-
-    @classmethod
-    def create_for_testing(
-        cls,
-        host: str = "localhost",
-        user: str = "test_user",
-        password: str = "test_password",
-        database: str = "test_db",
-        pool_size: int = 2
-    ) -> Database_Handler:
-        """
-        Creating a `Database_Handler` configured for testing.
-
-        Procedures:
-            1. Create a `Database_Configurator` with test parameters.
-            2. Create a `Crawly_Logger` for testing.
-            3. Create and return a `Database_Handler` instance with the test configuration and logger.
-
-        Parameters:
-            host (str): Database host for testing.
-            user (str): Database user for testing.
-            password (str): Database password for testing.
-            database (str): Database name for testing.
-            pool_size (int): Size of the connection pool for testing.
-
-        Returns:
-            Database_Handler: A handler configured for testing.
-        """
-        test_config = Database_Configurator(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
-            pool_name="test_pool",
-            pool_size=pool_size
-        )
-        test_logger = Crawly_Logger("Test_Database_Handler")
-        return Database_Handler(
-            config=test_config,
-            logger=test_logger
-        )
 
     @classmethod
     def shutdown(cls) -> None:
