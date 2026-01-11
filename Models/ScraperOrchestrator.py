@@ -51,7 +51,7 @@ class Scraper_Orchestrator:
         self._max_attempts = max_attempts if max_attempts is not None else 3
         self._backoff_base = backoff_base_seconds
 
-    def __log_debug(self, msg: str) -> None:
+    def __log_debug(self, message: str) -> None:
         """
         Logging a debug message.
 
@@ -60,7 +60,7 @@ class Scraper_Orchestrator:
             2. Logs the debug message.
 
         Parameters:
-            msg (str): The debug message to log.
+            message (str): The debug message to log.
 
         Returns:
             None
@@ -69,9 +69,31 @@ class Scraper_Orchestrator:
             Exception: If the logger is not properly configured.
         """
         if self._logger and hasattr(self._logger, "debug"):
-            self._logger.debug(msg)
+            self._logger.debug(message)
             return
         raise Exception("Logger is not properly configured for debug logging.")
+
+    def __log_info(self, message: str) -> None:
+        """
+        Logging an informational message.
+
+        Procedures:
+            1. Checks if a logger is configured.
+            2. Logs the informational message.
+
+        Parameters:
+            message (str): The informational message to log.
+
+        Returns:
+            None
+
+        Raises:
+            Exception: If the logger is not properly configured.
+        """
+        if self._logger and hasattr(self._logger, "inform"):
+            self._logger.inform(message)
+            return
+        raise Exception("Logger is not properly configured for informative logging.")
 
     def _get_data(
         self,
@@ -81,7 +103,7 @@ class Scraper_Orchestrator:
         try:
             self.__log_debug(f"Scraping the data needed. - Identifier: {self._strategy.identifier()} | Fetch attempt {attempts + 1}")
             response: str = self._strategy.fetch(context)
-            
+
         except Exception as error:
             attempts += 1
             last_error = error
