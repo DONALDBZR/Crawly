@@ -19,7 +19,6 @@ class Scraper_Orchestrator:
 
     Methods:
         run(context: Dict[str, Any]) -> Dict[str, Any]: Executes the scraping process: fetch -> extract -> normalize.
-
     """
     _strategy: Scraper_Strategy
     """The scraping strategy to use for fetching, extracting, and normalizing data."""
