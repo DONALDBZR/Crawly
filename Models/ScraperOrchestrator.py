@@ -171,30 +171,39 @@ class Scraper_Orchestrator:
         """
         if data is not None:
             return
-        raise Scraper_Exception("Fetched data is None.", 404)
+        raise Scraper_Exception("Fetched data is null.", 404)
 
     def run(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Executing the scraping process.
+
+        Procedures:
+            1. Logs the start of the scraping process.
+            2. Fetches data using the strategy.
+            3. Validates the fetched data.
+            4. Extracts fields from the data using the strategy.
+            5. Normalizes the extracted fields into the standard schema using the strategy.
+            6. Logs the successful completion of the scraping process.
+            7. Returns the normalized data.
+
+        Parameters:
+            context (Dict[str, Any]): Contextual info for the strategy (e.g., URLs, headers).
+
+        Returns:
+            Dict[str, Any]: The normalized data in standard schema.
+        """
+        self.__log_debug("Starting the scraping orchestration process.")
         try:
             data: Optional[str] = self._get_data(context)
-            pass
+            self._validate_data(data)
+            extracted: Dict[str, Any] = self._strategy.extract(data)
+            normalized: Dict[str, Any] = self._strategy.normalize(extracted)
+            self.__log_info("Scraping orchestration process completed successfully.")
+            return normalized
         except Scraper_Exception as error:
-            pass
-        last_error: Optional[Exception] = None
-        if data is None:
-            return self._error_response("FETCH_ERROR", last_error, attempts)
-        try:
-            self._log_debug("Extracting fields from data content...")
-            extracted = self._strategy.extract(data)
-        except Exception as error:
-            self._log_error(f"The extraction has failed. - Error: {error!r}")
-            return self._error_response("EXTRACT_ERROR", error, attempts)
-        try:
-            self._log_debug("Normalizing extracted fields to schema...")
-            normalized = self._strategy.normalize(extracted)
-        except Exception as error:
-            self._log_error(f"The normalization has failed. Error: {error!r}")
-            return self._error_response("NORMALIZE_ERROR", error, attempts)
-        return self._success_response(normalized, attempts)
+            message: str = f"The scraping orchestration has failed."
+            self.__log_error(f"{message} - Error: {error.message} | Status: {error.code}")
+            return {}
 
     # ---- Internal helpers -------------------------------------------------
 
