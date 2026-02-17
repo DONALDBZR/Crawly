@@ -158,6 +158,13 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         """
         Internal method to perform the HTTP request and fetch raw HTML content.
 
+        Procedures:
+            1. Constructs the HTTP request with the specified method and headers.
+            2. Executes the request with the given timeout.
+            3. Reads the response while enforcing the maximum response size limit.
+            4. Decodes the response bytes into a string using multiple encoding attempts.
+            5. Handles various exceptions and raises Scraper_Exception with appropriate messages.
+
         Parameters:
             url (str): The URL to fetch.
             method (str): The HTTP method to use (e.g., "GET").
@@ -199,77 +206,33 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
 
     def fetch(self, context: Dict[str, Any]) -> str:
         """
-        Fetching raw HTML content from the specified MNS page URL.
+        Fetching raw HTML content from the URL specified in the context.
 
         Procedures:
             1. Validates that the context contains a valid URL.
-            2. Extracts URL, headers, timeout, and method from context.
-            3. Constructs HTTP request with appropriate headers.
-            4. Executes the request with timeout and size constraints.
-            5. Reads and validates the response.
-            6. Returns the raw HTML body as a string.
+            2. Extracts headers, timeout, and method from the context with defaults.
+            3. Calls the internal `_fetch` method to perform the HTTP request and get raw HTML
+            4. Returns the raw HTML string.
 
         Parameters:
-            context (Dict[str, Any]): Context containing:
-                - url (str, required): The MNS page URL
-                - headers (Dict[str, str], optional): HTTP headers
-                - timeout (int, optional): Request timeout in seconds
-                - method (str, optional): HTTP method (default: "GET")
+            context (Dict[str, Any]): The context containing the URL and optional request parameters.
 
         Returns:
             str: The raw HTML response body as a string.
 
         Raises:
-            Scraper_Exception: If URL is missing, request fails, or response is invalid.
+            Scraper_Exception: If the context is invalid or the fetch operation fails.
         """
         url: str = self._validate_context_url(context)
         headers: Dict[str, str] = context.get("headers", {})
         timeout: int = context.get("timeout", self.__default_timeout)
         method: str = context.get("method", "GET")
-        # Step 3: Construct request
-        try:
-            request: Request = Request(url, method=method)
-            request.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            request.add_header("Accept-Language", "en-US,en;q=0.9")
-            request.add_header("User-Agent", "Impact Radar/1.0")
-            for header_name, header_value in headers.items():
-                if header_name and header_value:
-                    request.add_header(header_name, str(header_value))
-
-            # Step 4: Execute request with timeout
-            response = urlopen(request, timeout=timeout)
-
-            # Step 5: Read response with size limit
-            raw_data: bytes = response.read(self.__max_response_size + 1)
-            if len(raw_data) > self.__max_response_size:
-                raise Scraper_Exception(
-                    f"Response exceeds maximum size of {self.__max_response_size} bytes.",
-                    413
-                )
-
-            # Step 6: Decode and return (try multiple encodings)
-            return self._decode_html(raw_data)
-
-        except HTTPError as error:
-            raise Scraper_Exception(
-                f"HTTP error during fetch: {error.code} - {error.reason}",
-                error.code
-            )
-        except URLError as error:
-            raise Scraper_Exception(
-                f"URL error during fetch: {str(error.reason)}",
-                503
-            )
-        except UnicodeDecodeError as error:
-            raise Scraper_Exception(
-                f"Failed to decode response: {str(error)}",
-                500
-            )
-        except Exception as error:
-            raise Scraper_Exception(
-                f"Unexpected error during fetch: {str(error)}",
-                500
-            )
+        return self._fetch(
+            url,
+            method,
+            headers,
+            timeout
+        )
 
     def _decode_html(self, raw_data: bytes) -> str:
         """
