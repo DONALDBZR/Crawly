@@ -6,6 +6,7 @@ from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup, Tag
 from Models.ScraperStrategy import Scraper_Strategy
 from Errors.Scraper import Scraper_Exception
+from hashlib import sha256
 
 
 class Mns_Html_Scraper_Strategy(Scraper_Strategy):
@@ -360,6 +361,19 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         if not isinstance(extracted, dict):
             raise Scraper_Exception("Extracted data must be a dictionary.", 422)
 
+    def _generate_entity_id(self, extracted: Dict[str, Any]) -> str:
+        """
+        Generating a unique entity ID based on the content of the page.
+
+        Parameters:
+            extracted (Dict[str, Any]): The extracted data from which to generate the ID.
+
+        Returns:
+            str: A unique entity ID generated from the page content.
+        """
+        content_for_hash: str = str(extracted.get("page_title", "")) + str(extracted.get("main_content", ""))
+        return sha256(content_for_hash.encode()).hexdigest()[:16]
+
     def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
         """
         Converting extracted HTML fields into the standardized Crawly schema.
@@ -385,11 +399,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             Scraper_Exception: If extracted data is invalid.
         """
         self._normalize_validate_extracted(extracted)
-
-        # Step 2: Generate entity ID from content hash
-        import hashlib
-        content_for_hash: str = str(extracted.get("page_title", "")) + str(extracted.get("main_content", ""))
-        entity_id: str = hashlib.sha256(content_for_hash.encode()).hexdigest()[:16]
+        entity_id: str = self._generate_entity_id(extracted)
 
         # Step 3: Get current timestamp
         from datetime import datetime, timezone
