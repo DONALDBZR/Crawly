@@ -541,6 +541,21 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             pass
         return images
 
+    def __extract_tables_get_headers(self, table: Tag) -> List[str]:
+        """
+        Extracting table headers from a table element.
+
+        Parameters:
+            table (Tag): The BeautifulSoup Tag object representing the table.
+
+        Returns:
+            List[str]: A list of header names extracted from the table, or an empty list if no headers are found.
+        """
+        headers = table.find_all("th")
+        if not headers:
+            return []
+        return [header.get_text(strip=True) for header in headers]
+
     def _extract_tables(self, soup: BeautifulSoup) -> list[Dict[str, Any]]:
         """
         Extracting table data from the page.
@@ -558,11 +573,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
                     "headers": [],
                     "rows": []
                 }
-
-                # Extract headers
-                headers = table.find_all("th")
-                if headers:
-                    table_dict["headers"] = [h.get_text(strip=True) for h in headers]
+                table_dict["headers"] = self.__extract_tables_get_headers(table)
 
                 # Extract rows
                 for row in table.find_all("tr"):
