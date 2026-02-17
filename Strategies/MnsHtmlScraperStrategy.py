@@ -287,6 +287,20 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         except Exception as error:
             raise Scraper_Exception(f"It has failed to parse HTML. - Error: {str(error)}", 422)
 
+    def _set_extracted_page_title(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Ensuring that the extracted page title is set, using a default if necessary.
+
+        Parameters:
+            extracted (Dict[str, Any]): The dictionary of extracted fields.
+
+        Returns:
+            Dict[str, Any]: The updated extracted fields with a guaranteed page title.
+        """
+        if not extracted["page_title"]:
+            extracted["page_title"] = "Untitled MNS Page"
+        return extracted
+
     def extract(self, raw: str) -> Dict[str, Any]:
         """
         Extracting data fields from raw HTML content using CSS selectors.
@@ -316,8 +330,6 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         """
         self._validate_input(raw)
         soup: BeautifulSoup = self._parse_html(raw)
-
-        # Step 3: Extract fields using default selectors
         extracted: Dict[str, Any] = {
             "page_title": self._extract_text(soup, self.__default_selectors["page_title"]),
             "main_content": self._extract_text(soup, self.__default_selectors["main_content"]),
@@ -326,12 +338,14 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             "links": self._extract_links(soup),
             "images": self._extract_images(soup),
             "tables": self._extract_tables(soup),
-            "raw_text": soup.get_text(separator=" ", strip=True)
+            "raw_text": soup.get_text(
+                separator=" ",
+                strip=True
+            )
         }
 
         # Step 4: Validate critical fields
-        if not extracted["page_title"]:
-            extracted["page_title"] = "Untitled MNS Page"
+        extracted = self._set_extracted_page_title(extracted)
 
         return extracted
 
