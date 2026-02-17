@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
-from urllib.request import Request, urlopen
+from urllib.request import _UrlopenRet, Request, urlopen
 from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup, Tag
 from Models.ScraperStrategy import Scraper_Strategy
@@ -155,52 +155,47 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         headers: Dict[str, str],
         timeout: int
     ) -> str:
+        """
+        Internal method to perform the HTTP request and fetch raw HTML content.
+
+        Parameters:
+            url (str): The URL to fetch.
+            method (str): The HTTP method to use (e.g., "GET").
+            headers (Dict[str, str]): HTTP headers to include in the request.
+            timeout (int): The timeout for the request in seconds.
+
+        Returns:
+            str: The raw HTML response body as a string.
+
+        Raises:
+            Scraper_Exception: If the request fails or the response is invalid.
+        """
         try:
             request: Request = Request(
                 url,
                 method=method
             )
-            request.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-            request.add_header("Accept-Language", "en-US,en;q=0.9")
-            request.add_header("User-Agent", "Impact Radar/1.0")
+            request = self.__add_header(request, "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            request = self.__add_header(request, "Accept-Language", "en-US,en;q=0.9")
+            request = self.__add_header(request, "User-Agent", "Impact Radar/1.0")
             for header_name, header_value in headers.items():
-                if header_name and header_value:
-                    request.add_header(header_name, str(header_value))
-
-            # Step 4: Execute request with timeout
-            response = urlopen(request, timeout=timeout)
-
-            # Step 5: Read response with size limit
+                request = self.__add_header(request, header_name, str(header_value))
+            response: _UrlopenRet = urlopen(
+                request,
+                timeout=timeout
+            )
             raw_data: bytes = response.read(self.__max_response_size + 1)
             if len(raw_data) > self.__max_response_size:
-                raise Scraper_Exception(
-                    f"Response exceeds maximum size of {self.__max_response_size} bytes.",
-                    413
-                )
-
-            # Step 6: Decode and return (try multiple encodings)
+                raise Scraper_Exception("The response has exceeded the maximum allowed size.", 413)
             return self._decode_html(raw_data)
-
         except HTTPError as error:
-            raise Scraper_Exception(
-                f"HTTP error during fetch: {error.code} - {error.reason}",
-                error.code
-            )
+            raise Scraper_Exception(f"There is an HTTP error while fetching the URL. - Reason: {error.reason}", error.code)
         except URLError as error:
-            raise Scraper_Exception(
-                f"URL error during fetch: {str(error.reason)}",
-                503
-            )
+            raise Scraper_Exception(f"There is an error in the URL. - Reason: {error.reason}", 503)
         except UnicodeDecodeError as error:
-            raise Scraper_Exception(
-                f"Failed to decode response: {str(error)}",
-                500
-            )
+            raise Scraper_Exception(f"The response cannot be decoded. - Error: {str(error)}", 500)
         except Exception as error:
-            raise Scraper_Exception(
-                f"Unexpected error during fetch: {str(error)}",
-                500
-            )
+            raise Scraper_Exception(f"An unexpected error occured. - Error: {str(error)}", 500)
 
     def fetch(self, context: Dict[str, Any]) -> str:
         """
