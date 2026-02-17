@@ -1,0 +1,528 @@
+from __future__ import annotations
+import re
+from typing import Any, Dict, Optional
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from bs4 import BeautifulSoup, Tag
+from Models.ScraperStrategy import Scraper_Strategy
+from Errors.Scraper import Scraper_Exception
+
+
+class Mns_Html_Scraper_Strategy(Scraper_Strategy):
+    """
+    Concrete scraper strategy for fetching and normalizing data from MNS HTML pages.
+
+    This strategy demonstrates HTML-based scraping using BeautifulSoup4:
+    - Fetches raw HTML content from MNS web pages
+    - Parses HTML using BeautifulSoup4
+    - Extracts data using CSS selectors (configurable per request)
+    - Normalizes extracted data into a stable, predictable schema
+    - Handles errors gracefully with domain-specific exceptions
+
+    Expected context keys:
+        - url (str, required): The MNS page URL to scrape
+        - headers (Dict[str, str], optional): HTTP headers for the request
+        - timeout (int, optional): Request timeout in seconds (default: 10)
+        - method (str, optional): HTTP method (default: "GET")
+        - selectors (Dict[str, str], optional): CSS selectors for field extraction
+            Example: {"title": "h1.page-title", "content": "div.main-content"}
+
+    Normalized output schema:
+        {
+            "entity_type": "mns_page",
+            "entity_id": str,
+            "timestamp": str (ISO 8601 format),
+            "data": {
+                "page_url": str,
+                "page_title": str,
+                "extracted_fields": Dict[str, Any],
+                "metadata": Dict[str, Any]
+            }
+        }
+    """
+
+    __identifier: str
+    """Unique identifier for this strategy instance."""
+    __default_timeout: int
+    """Default timeout for HTTP requests in seconds."""
+    __max_response_size: int
+    """Maximum allowed response size in bytes to prevent memory issues."""
+    __default_selectors: Dict[str, str]
+    """Default CSS selectors for common MNS page elements."""
+
+    def __init__(
+        self,
+        identifier: Optional[str] = None,
+        default_timeout: int = 10,
+        max_response_size: int = 16777216,
+        default_selectors: Optional[Dict[str, str]] = None
+    ) -> None:
+        """
+        Initializing the MNS HTML scraper strategy.
+
+        Parameters:
+            identifier (Optional[str]): Unique identifier for this strategy. Defaults to class name.
+            default_timeout (int): Default timeout for HTTP requests in seconds. Defaults to 10.
+            max_response_size (int): Maximum response size in bytes. Defaults to 16 MB.
+            default_selectors (Optional[Dict[str, str]]): Default CSS selectors for extraction.
+
+        Raises:
+            Scraper_Exception: If initialization parameters are invalid.
+        """
+        self.__validate_strategy(default_timeout, max_response_size)
+        self.__identifier = identifier if identifier else self.__class__.__name__
+        self.__default_timeout = default_timeout
+        self.__max_response_size = max_response_size
+        self.__default_selectors = default_selectors if default_selectors else {
+            "page_title": "title, h1",
+            "main_content": "main, article, .content, #content",
+            "description": "meta[name='description']",
+        }
+
+    def __validate_strategy(self, timeout: int, max_response_size: int) -> None:
+        """
+        Validating strategy configuration parameters.
+
+        Parameters:
+            timeout (int): The timeout value to validate.
+            max_response_size (int): The maximum response size to validate.
+
+        Raises:
+            Scraper_Exception: If validation fails due to invalid parameters.
+        """
+        is_allowed: bool = (timeout > 0 and max_response_size > 0)
+        if not is_allowed:
+            raise Scraper_Exception(
+                "Invalid strategy configuration: timeout and max_response_size must be positive.",
+                400
+            )
+
+    def identifier(self) -> str:
+        """
+        Returning the unique identifier for this strategy.
+
+        Returns:
+            str: The strategy identifier.
+        """
+        return self.__identifier
+
+    def _validate_context_url(self, context: Dict[str, Any]) -> str:
+        """
+        Validating that the context contains a valid URL.
+
+        Procedures:
+            1. Checks if context is provided and contains 'url' key.
+            2. Validates that the URL is a non-empty string.
+            3. Returns the URL if valid, otherwise raises an exception.
+
+        Parameters:
+            context (Dict[str, Any]): The context dictionary to validate.
+
+        Returns:
+            str: The validated URL from the context.
+
+        Raises:
+            Scraper_Exception: If the URL is missing or invalid.
+        """
+        if not context or "url" not in context:
+            raise Scraper_Exception("Missing required context key: 'url'", 400)
+        response: str = context["url"]
+        if not response or not isinstance(response, str):
+            raise Scraper_Exception("URL must be a non-empty string.", 400)
+        return response
+
+    def fetch(self, context: Dict[str, Any]) -> str:
+        """
+        Fetching raw HTML content from the specified MNS page URL.
+
+        Procedures:
+            1. Validates that the context contains a valid URL.
+            2. Extracts URL, headers, timeout, and method from context.
+            3. Constructs HTTP request with appropriate headers.
+            4. Executes the request with timeout and size constraints.
+            5. Reads and validates the response.
+            6. Returns the raw HTML body as a string.
+
+        Parameters:
+            context (Dict[str, Any]): Context containing:
+                - url (str, required): The MNS page URL
+                - headers (Dict[str, str], optional): HTTP headers
+                - timeout (int, optional): Request timeout in seconds
+                - method (str, optional): HTTP method (default: "GET")
+
+        Returns:
+            str: The raw HTML response body as a string.
+
+        Raises:
+            Scraper_Exception: If URL is missing, request fails, or response is invalid.
+        """
+        url: str = self._validate_context_url(context)
+        headers: Dict[str, str] = context.get("headers", {})
+        timeout: int = context.get("timeout", self.__default_timeout)
+        method: str = context.get("method", "GET")
+
+        # Step 3: Construct request
+        try:
+            request: Request = Request(url, method=method)
+            # Add default headers for HTML scraping
+            request.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            request.add_header("Accept-Language", "en-US,en;q=0.9")
+            request.add_header("User-Agent", "Crawly/1.0 (MNS HTML Scraper)")
+
+            # Add custom headers
+            for header_name, header_value in headers.items():
+                if header_name and header_value:
+                    request.add_header(header_name, str(header_value))
+
+            # Step 4: Execute request with timeout
+            response = urlopen(request, timeout=timeout)
+
+            # Step 5: Read response with size limit
+            raw_data: bytes = response.read(self.__max_response_size + 1)
+            if len(raw_data) > self.__max_response_size:
+                raise Scraper_Exception(
+                    f"Response exceeds maximum size of {self.__max_response_size} bytes.",
+                    413
+                )
+
+            # Step 6: Decode and return (try multiple encodings)
+            return self._decode_html(raw_data)
+
+        except HTTPError as error:
+            raise Scraper_Exception(
+                f"HTTP error during fetch: {error.code} - {error.reason}",
+                error.code
+            )
+        except URLError as error:
+            raise Scraper_Exception(
+                f"URL error during fetch: {str(error.reason)}",
+                503
+            )
+        except UnicodeDecodeError as error:
+            raise Scraper_Exception(
+                f"Failed to decode response: {str(error)}",
+                500
+            )
+        except Exception as error:
+            raise Scraper_Exception(
+                f"Unexpected error during fetch: {str(error)}",
+                500
+            )
+
+    def _decode_html(self, raw_data: bytes) -> str:
+        """
+        Decoding raw bytes to string, trying multiple encodings.
+
+        Parameters:
+            raw_data (bytes): The raw response bytes.
+
+        Returns:
+            str: The decoded HTML string.
+
+        Raises:
+            UnicodeDecodeError: If all decoding attempts fail.
+        """
+        encodings: list[str] = ["utf-8", "iso-8859-1", "windows-1252"]
+        for encoding in encodings:
+            try:
+                return raw_data.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        # Last resort: decode with errors replaced
+        return raw_data.decode("utf-8", errors="replace")
+
+    def extract(self, raw: str) -> Dict[str, Any]:
+        """
+        Extracting data fields from raw HTML content using CSS selectors.
+
+        Procedures:
+            1. Validates that raw input is not empty.
+            2. Parses raw HTML using BeautifulSoup.
+            3. Extracts fields using configured CSS selectors.
+            4. Extracts metadata (links, images, tables).
+            5. Returns extracted fields as a dictionary.
+
+        Parameters:
+            raw (str): The raw HTML response string.
+
+        Returns:
+            Dict[str, Any]: Extracted fields containing:
+                - page_title: Extracted page title
+                - main_content: Main content text
+                - extracted_fields: Fields extracted using custom selectors
+                - links: List of links found on the page
+                - images: List of images found on the page
+                - tables: Extracted table data
+                - raw_text: Full text content of the page
+
+        Raises:
+            Scraper_Exception: If parsing fails or critical fields are missing.
+        """
+        # Step 1: Validate input
+        if not raw or not isinstance(raw, str):
+            raise Scraper_Exception("Raw input must be a non-empty string.", 400)
+
+        # Step 2: Parse HTML
+        try:
+            soup: BeautifulSoup = BeautifulSoup(raw, "html.parser")
+        except Exception as error:
+            raise Scraper_Exception(
+                f"Failed to parse HTML: {str(error)}",
+                422
+            )
+
+        # Step 3: Extract fields using default selectors
+        extracted: Dict[str, Any] = {
+            "page_title": self._extract_text(soup, self.__default_selectors["page_title"]),
+            "main_content": self._extract_text(soup, self.__default_selectors["main_content"]),
+            "description": self._extract_meta_content(soup, "description"),
+            "extracted_fields": {},
+            "links": self._extract_links(soup),
+            "images": self._extract_images(soup),
+            "tables": self._extract_tables(soup),
+            "raw_text": soup.get_text(separator=" ", strip=True)
+        }
+
+        # Step 4: Validate critical fields
+        if not extracted["page_title"]:
+            extracted["page_title"] = "Untitled MNS Page"
+
+        return extracted
+
+    def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Converting extracted HTML fields into the standardized Crawly schema.
+
+        Procedures:
+            1. Validates that extracted data is a dictionary.
+            2. Constructs standard entity envelope with metadata.
+            3. Maps extracted fields to normalized field names.
+            4. Adds timestamp and entity type information.
+            5. Returns the normalized data structure.
+
+        Parameters:
+            extracted (Dict[str, Any]): Extracted fields from extract().
+
+        Returns:
+            Dict[str, Any]: Normalized data in standard schema with:
+                - entity_type: Always "mns_page"
+                - entity_id: Hash of page content for uniqueness
+                - timestamp: ISO 8601 timestamp
+                - data: Normalized page data fields
+
+        Raises:
+            Scraper_Exception: If extracted data is invalid.
+        """
+        # Step 1: Validate input
+        if not isinstance(extracted, dict):
+            raise Scraper_Exception("Extracted data must be a dictionary.", 422)
+
+        # Step 2: Generate entity ID from content hash
+        import hashlib
+        content_for_hash: str = str(extracted.get("page_title", "")) + str(extracted.get("main_content", ""))
+        entity_id: str = hashlib.sha256(content_for_hash.encode()).hexdigest()[:16]
+
+        # Step 3: Get current timestamp
+        from datetime import datetime, timezone
+        timestamp: str = datetime.now(timezone.utc).isoformat()
+
+        # Step 4: Construct normalized schema
+        normalized: Dict[str, Any] = {
+            "entity_type": "mns_page",
+            "entity_id": entity_id,
+            "timestamp": timestamp,
+            "data": {
+                "page_title": str(extracted.get("page_title", "")),
+                "description": str(extracted.get("description", "")),
+                "main_content": str(extracted.get("main_content", "")),
+                "extracted_fields": extracted.get("extracted_fields", {}),
+                "metadata": {
+                    "links_count": len(extracted.get("links", [])),
+                    "images_count": len(extracted.get("images", [])),
+                    "tables_count": len(extracted.get("tables", [])),
+                    "text_length": len(extracted.get("raw_text", "")),
+                    "links": extracted.get("links", [])[:10],  # Limit to first 10
+                    "images": extracted.get("images", [])[:10],  # Limit to first 10
+                    "tables": extracted.get("tables", [])
+                }
+            }
+        }
+
+        return normalized
+
+    def should_retry(self, exception: Exception, attempt: int) -> bool:
+        """
+        Determining if a fetch should be retried based on exception type and attempt count.
+
+        Procedures:
+            1. Checks if exception is a Scraper_Exception.
+            2. Evaluates status code to determine if retry is appropriate.
+            3. Returns True for transient errors (5xx, 429), False for client errors (4xx).
+            4. Limits retries to 3 attempts maximum.
+
+        Parameters:
+            exception (Exception): The exception raised during fetch.
+            attempt (int): The current attempt number (1-based).
+
+        Returns:
+            bool: True if retry should be attempted, False otherwise.
+        """
+        # Limit total attempts
+        if attempt >= 3:
+            return False
+
+        # Retry on transient errors
+        if isinstance(exception, Scraper_Exception):
+            # Retry on server errors (5xx) and rate limiting (429)
+            if exception.code >= 500 or exception.code == 429:
+                return True
+            # Don't retry on client errors (4xx except 429)
+            if 400 <= exception.code < 500:
+                return False
+
+        # Default: retry on unknown errors
+        return attempt < 3
+
+    # ========== Helper Methods for HTML Extraction ==========
+
+    def _extract_text(self, soup: BeautifulSoup, selector: str) -> str:
+        """
+        Extracting text content using CSS selector.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+            selector (str): CSS selector (can be comma-separated for alternatives).
+
+        Returns:
+            str: The extracted text or empty string if not found.
+        """
+        selectors: list[str] = [s.strip() for s in selector.split(",")]
+        for sel in selectors:
+            try:
+                element: Optional[Tag] = soup.select_one(sel)
+                if element:
+                    return element.get_text(strip=True)
+            except Exception:
+                continue
+        return ""
+
+    def _extract_meta_content(self, soup: BeautifulSoup, name: str) -> str:
+        """
+        Extracting content from meta tag by name.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+            name (str): The meta tag name attribute.
+
+        Returns:
+            str: The content attribute value or empty string.
+        """
+        try:
+            meta = soup.find("meta", attrs={"name": name})
+            if meta and isinstance(meta, Tag):
+                return str(meta.get("content", ""))
+        except Exception:
+            pass
+        return ""
+
+    def _extract_links(self, soup: BeautifulSoup) -> list[Dict[str, str]]:
+        """
+        Extracting all links from the page.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+
+        Returns:
+            list[Dict[str, str]]: List of link dictionaries with 'href' and 'text'.
+        """
+        links: list[Dict[str, str]] = []
+        try:
+            for link in soup.find_all("a", href=True):
+                href: str = str(link.get("href", ""))
+                text: str = link.get_text(strip=True)
+                if href:
+                    links.append({"href": href, "text": text})
+        except Exception:
+            pass
+        return links
+
+    def _extract_images(self, soup: BeautifulSoup) -> list[Dict[str, str]]:
+        """
+        Extracting all images from the page.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+
+        Returns:
+            list[Dict[str, str]]: List of image dictionaries with 'src' and 'alt'.
+        """
+        images: list[Dict[str, str]] = []
+        try:
+            for img in soup.find_all("img", src=True):
+                src: str = str(img.get("src", ""))
+                alt: str = str(img.get("alt", ""))
+                if src:
+                    images.append({"src": src, "alt": alt})
+        except Exception:
+            pass
+        return images
+
+    def _extract_tables(self, soup: BeautifulSoup) -> list[Dict[str, Any]]:
+        """
+        Extracting table data from the page.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+
+        Returns:
+            list[Dict[str, Any]]: List of table dictionaries with headers and rows.
+        """
+        tables_data: list[Dict[str, Any]] = []
+        try:
+            for table in soup.find_all("table"):
+                table_dict: Dict[str, Any] = {
+                    "headers": [],
+                    "rows": []
+                }
+
+                # Extract headers
+                headers = table.find_all("th")
+                if headers:
+                    table_dict["headers"] = [h.get_text(strip=True) for h in headers]
+
+                # Extract rows
+                for row in table.find_all("tr"):
+                    cells = row.find_all(["td", "th"])
+                    if cells:
+                        row_data = [cell.get_text(strip=True) for cell in cells]
+                        table_dict["rows"].append(row_data)
+
+                if table_dict["rows"]:
+                    tables_data.append(table_dict)
+        except Exception:
+            pass
+        return tables_data
+
+    def extract_with_custom_selectors(
+        self,
+        soup: BeautifulSoup,
+        selectors: Dict[str, str]
+    ) -> Dict[str, Any]:
+        """
+        Extracting fields using custom CSS selectors provided in context.
+
+        Parameters:
+            soup (BeautifulSoup): The parsed HTML document.
+            selectors (Dict[str, str]): Dictionary mapping field names to CSS selectors.
+
+        Returns:
+            Dict[str, Any]: Dictionary of extracted field values.
+        """
+        extracted_fields: Dict[str, Any] = {}
+        for field_name, selector in selectors.items():
+            try:
+                extracted_fields[field_name] = self._extract_text(soup, selector)
+            except Exception as error:
+                # Log but don't fail on individual selector errors
+                extracted_fields[field_name] = None
+        return extracted_fields
