@@ -269,6 +269,24 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         if not raw or not isinstance(raw, str):
             raise Scraper_Exception("Raw input must be a non-empty string.", 400)
 
+    def _parse_html(self, raw: str) -> BeautifulSoup:
+        """
+        Parsing raw HTML string into a BeautifulSoup object.
+
+        Parameters:
+            raw (str): The raw HTML response string.
+
+        Returns:
+            BeautifulSoup: The parsed HTML document.
+
+        Raises:
+            Scraper_Exception: If parsing fails due to invalid HTML.
+        """
+        try:
+            return BeautifulSoup(raw, "html.parser")
+        except Exception as error:
+            raise Scraper_Exception(f"It has failed to parse HTML. - Error: {str(error)}", 422)
+
     def extract(self, raw: str) -> Dict[str, Any]:
         """
         Extracting data fields from raw HTML content using CSS selectors.
@@ -297,15 +315,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             Scraper_Exception: If parsing fails or critical fields are missing.
         """
         self._validate_input(raw)
-
-        # Step 2: Parse HTML
-        try:
-            soup: BeautifulSoup = BeautifulSoup(raw, "html.parser")
-        except Exception as error:
-            raise Scraper_Exception(
-                f"Failed to parse HTML: {str(error)}",
-                422
-            )
+        soup: BeautifulSoup = self._parse_html(raw)
 
         # Step 3: Extract fields using default selectors
         extracted: Dict[str, Any] = {
