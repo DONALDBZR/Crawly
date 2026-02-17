@@ -45,6 +45,10 @@ class Database_Handler_Factory:
         """
         Initializing the factory with default configuration and resources.
 
+        NOTE: For proper configuration validation, call 
+        Environment_Validator.validate_environment(require_database=True) at application
+        startup before calling this method.
+
         Procedures:
             1. Set the default configuration using the provided config or environment variables.
             2. Set the default logger using the provided logger or create a new one.
