@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup, Tag
 from Models.ScraperStrategy import Scraper_Strategy
 from Errors.Scraper import Scraper_Exception
 from hashlib import sha256
+from datetime import datetime, timezone
 
 
 class Mns_Html_Scraper_Strategy(Scraper_Strategy):
@@ -376,36 +377,38 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
 
     def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Converting extracted HTML fields into the standardized Crawly schema.
+        Normalizing extracted data into a stable schema.
 
         Procedures:
-            1. Validates that extracted data is a dictionary.
-            2. Constructs standard entity envelope with metadata.
-            3. Maps extracted fields to normalized field names.
-            4. Adds timestamp and entity type information.
-            5. Returns the normalized data structure.
+            1. Validates that the extracted data is a dictionary.
+            2. Generates a unique entity ID based on the page content.
+            3. Constructs a normalized dictionary with a consistent schema.
+            4. Returns the normalized data.
 
         Parameters:
-            extracted (Dict[str, Any]): Extracted fields from extract().
+            extracted (Dict[str, Any]): The dictionary of extracted fields.
 
         Returns:
-            Dict[str, Any]: Normalized data in standard schema with:
-                - entity_type: Always "mns_page"
-                - entity_id: Hash of page content for uniqueness
-                - timestamp: ISO 8601 timestamp
-                - data: Normalized page data fields
+            Dict[str, Any]: A normalized dictionary with the following structure:
+                {
+                    "entity_type": "mns_page",
+                    "entity_id": str,
+                    "timestamp": str (ISO 8601 format),
+                    "data": {
+                        "page_title": str,
+                        "description": str,
+                        "main_content": str,
+                        "extracted_fields": Dict[str, Any],
+                        "metadata": Dict[str, Any]
+                    }
+                }
 
         Raises:
-            Scraper_Exception: If extracted data is invalid.
+            Scraper_Exception: If the extracted data is invalid.
         """
         self._normalize_validate_extracted(extracted)
         entity_id: str = self._generate_entity_id(extracted)
-
-        # Step 3: Get current timestamp
-        from datetime import datetime, timezone
         timestamp: str = datetime.now(timezone.utc).isoformat()
-
-        # Step 4: Construct normalized schema
         normalized: Dict[str, Any] = {
             "entity_type": "mns_page",
             "entity_id": entity_id,
@@ -426,7 +429,6 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
                 }
             }
         }
-
         return normalized
 
     def should_retry(self, exception: Exception, attempt: int) -> bool:
