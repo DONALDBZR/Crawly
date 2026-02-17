@@ -556,6 +556,29 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             return []
         return [header.get_text(strip=True) for header in headers]
 
+    def __extract_tables_get_rows(self, table: Tag) -> List[List[str]]:
+        """
+        Extracting table rows from a table element.
+
+        Procedures:
+            1. Iterates through each row in the table.
+            2. For each row, extracts the text from all cells (both <td> and <th>).
+            3. Compiles the extracted cell texts into a list of rows, where each row is a list of cell values.
+
+        Parameters:
+            table (Tag): The BeautifulSoup Tag object representing the table.
+
+        Returns:
+            List[List[str]]: A list of rows, where each row is a list of cell values. Returns an empty list if no rows are found.
+        """
+        response: List[List[str]] = []
+        for row in table.find_all("tr"):
+            cells: List[Tag] = row.find_all(["td", "th"])
+            if not cells:
+                continue
+            response.append([cell.get_text(strip=True) for cell in cells])
+        return response
+
     def _extract_tables(self, soup: BeautifulSoup) -> list[Dict[str, Any]]:
         """
         Extracting table data from the page.
@@ -574,14 +597,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
                     "rows": []
                 }
                 table_dict["headers"] = self.__extract_tables_get_headers(table)
-
-                # Extract rows
-                for row in table.find_all("tr"):
-                    cells = row.find_all(["td", "th"])
-                    if cells:
-                        row_data = [cell.get_text(strip=True) for cell in cells]
-                        table_dict["rows"].append(row_data)
-
+                table_dict["rows"] = self.__extract_tables_get_rows(table)
                 if table_dict["rows"]:
                     tables_data.append(table_dict)
         except Exception:
