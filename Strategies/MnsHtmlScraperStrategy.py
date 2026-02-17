@@ -347,6 +347,19 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         extracted = self._set_extracted_page_title(extracted)
         return extracted
 
+    def _normalize_validate_extracted(self, extracted: Dict[str, Any]) -> None:
+        """
+        Validating that the extracted data is a dictionary.
+
+        Parameters:
+            extracted (Dict[str, Any]): The extracted data to validate.
+
+        Raises:
+            Scraper_Exception: If the extracted data is not a dictionary.
+        """
+        if not isinstance(extracted, dict):
+            raise Scraper_Exception("Extracted data must be a dictionary.", 422)
+
     def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
         """
         Converting extracted HTML fields into the standardized Crawly schema.
@@ -371,9 +384,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         Raises:
             Scraper_Exception: If extracted data is invalid.
         """
-        # Step 1: Validate input
-        if not isinstance(extracted, dict):
-            raise Scraper_Exception("Extracted data must be a dictionary.", 422)
+        self._normalize_validate_extracted(extracted)
 
         # Step 2: Generate entity ID from content hash
         import hashlib
