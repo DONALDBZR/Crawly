@@ -41,18 +41,18 @@ class Product_Api_Scraper_Strategy(Scraper_Strategy):
         }
     """
 
-    _identifier: str
+    __identifier: str
     """Unique identifier for this strategy instance."""
-    _default_timeout: int
+    __default_timeout: int
     """Default timeout for HTTP requests in seconds."""
-    _max_response_size: int
+    __max_response_size: int
     """Maximum allowed response size in bytes to prevent memory issues."""
 
     def __init__(
         self,
         identifier: Optional[str] = None,
         default_timeout: int = 10,
-        max_response_size: int = 10485760
+        max_response_size: int = 16777216
     ) -> None:
         """
         Initializing the Product API scraper strategy.
@@ -60,19 +60,30 @@ class Product_Api_Scraper_Strategy(Scraper_Strategy):
         Parameters:
             identifier (Optional[str]): Unique identifier for this strategy. Defaults to class name.
             default_timeout (int): Default timeout for HTTP requests in seconds. Defaults to 10.
-            max_response_size (int): Maximum response size in bytes. Defaults to 10MB.
+            max_response_size (int): Maximum response size in bytes. Defaults to 16 MB.
 
         Raises:
             Scraper_Exception: If initialization parameters are invalid.
         """
-        if default_timeout <= 0:
-            raise Scraper_Exception("Default timeout must be positive.", 400)
-        if max_response_size <= 0:
-            raise Scraper_Exception("Max response size must be positive.", 400)
+        self.__validate_strategy(default_timeout, max_response_size)
+        self.__identifier = identifier if identifier else self.__class__.__name__
+        self.__default_timeout = default_timeout
+        self.__max_response_size = max_response_size
 
-        self._identifier = identifier if identifier else self.__class__.__name__
-        self._default_timeout = default_timeout
-        self._max_response_size = max_response_size
+    def __validate_strategy(self, timeout: int, max_response_size: int) -> None:
+        """
+        Validating strategy configuration parameters.
+
+        Parameters:
+            timeout (int): The timeout value to validate.
+            max_response_size (int): The maximum response size to validate.
+
+        Raises:
+            Scraper_Exception: If validation fails due to invalid parameters.
+        """
+        is_allowed: bool = (timeout > 0 or max_response_size > 0)
+        if not is_allowed:
+            raise Scraper_Exception("Invalid strategy configuration: timeout and max_response_size must be positive.", 400)
 
     def identifier(self) -> str:
         """
@@ -81,7 +92,7 @@ class Product_Api_Scraper_Strategy(Scraper_Strategy):
         Returns:
             str: The strategy identifier.
         """
-        return self._identifier
+        return self.__identifier
 
     def fetch(self, context: Dict[str, Any]) -> str:
         """
@@ -118,7 +129,7 @@ class Product_Api_Scraper_Strategy(Scraper_Strategy):
 
         # Step 2: Extract optional parameters
         headers: Dict[str, str] = context.get("headers", {})
-        timeout: int = context.get("timeout", self._default_timeout)
+        timeout: int = context.get("timeout", self.__default_timeout)
         method: str = context.get("method", "GET")
 
         # Step 3: Construct request
@@ -138,10 +149,10 @@ class Product_Api_Scraper_Strategy(Scraper_Strategy):
             response = urlopen(request, timeout=timeout)
 
             # Step 5: Read response with size limit
-            raw_data: bytes = response.read(self._max_response_size + 1)
-            if len(raw_data) > self._max_response_size:
+            raw_data: bytes = response.read(self.__max_response_size + 1)
+            if len(raw_data) > self.__max_response_size:
                 raise Scraper_Exception(
-                    f"Response exceeds maximum size of {self._max_response_size} bytes.",
+                    f"Response exceeds maximum size of {self.__max_response_size} bytes.",
                     413
                 )
 
