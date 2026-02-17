@@ -581,13 +581,18 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
 
     def _extract_tables(self, soup: BeautifulSoup) -> list[Dict[str, Any]]:
         """
-        Extracting table data from the page.
+        Extracting all tables from the page.
+
+        Procedures:
+            1. Iterates through all <table> elements in the parsed HTML.
+            2. For each table, extracts headers and rows using helper methods.
+            3. Compiles the extracted data into a list of dictionaries, each representing a table with its headers and rows.
 
         Parameters:
             soup (BeautifulSoup): The parsed HTML document.
 
         Returns:
-            list[Dict[str, Any]]: List of table dictionaries with headers and rows.
+            list[Dict[str, Any]]: A list of dictionaries, each containing 'headers' (list of header names) and 'rows' (list of rows with cell values). Returns an empty list if no tables are found.
         """
         tables_data: list[Dict[str, Any]] = []
         try:
@@ -598,8 +603,9 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
                 }
                 table_dict["headers"] = self.__extract_tables_get_headers(table)
                 table_dict["rows"] = self.__extract_tables_get_rows(table)
-                if table_dict["rows"]:
-                    tables_data.append(table_dict)
+                if not table_dict["rows"]:
+                    continue
+                tables_data.append(table_dict)
         except Exception:
             pass
         return tables_data
