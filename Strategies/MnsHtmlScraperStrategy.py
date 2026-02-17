@@ -128,6 +128,80 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             raise Scraper_Exception("URL must be a non-empty string.", 400)
         return response
 
+    def __add_header(self,
+        request: Request,
+        name: str,
+        value: str
+    ) -> Request:
+        """
+        Adding a header to the HTTP request if both name and value are provided.
+
+        Parameters:
+            request (Request): The HTTP request object to modify.
+            name (str): The name of the header to add.
+            value (str): The value of the header to add.
+
+        Returns:
+            Request: The modified HTTP request object with the new header added.
+        """
+        if name and value:
+            request.add_header(name, value)
+        return request
+
+    def _fetch(
+        self,
+        url: str,
+        method: str,
+        headers: Dict[str, str],
+        timeout: int
+    ) -> str:
+        try:
+            request: Request = Request(
+                url,
+                method=method
+            )
+            request.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            request.add_header("Accept-Language", "en-US,en;q=0.9")
+            request.add_header("User-Agent", "Impact Radar/1.0")
+            for header_name, header_value in headers.items():
+                if header_name and header_value:
+                    request.add_header(header_name, str(header_value))
+
+            # Step 4: Execute request with timeout
+            response = urlopen(request, timeout=timeout)
+
+            # Step 5: Read response with size limit
+            raw_data: bytes = response.read(self.__max_response_size + 1)
+            if len(raw_data) > self.__max_response_size:
+                raise Scraper_Exception(
+                    f"Response exceeds maximum size of {self.__max_response_size} bytes.",
+                    413
+                )
+
+            # Step 6: Decode and return (try multiple encodings)
+            return self._decode_html(raw_data)
+
+        except HTTPError as error:
+            raise Scraper_Exception(
+                f"HTTP error during fetch: {error.code} - {error.reason}",
+                error.code
+            )
+        except URLError as error:
+            raise Scraper_Exception(
+                f"URL error during fetch: {str(error.reason)}",
+                503
+            )
+        except UnicodeDecodeError as error:
+            raise Scraper_Exception(
+                f"Failed to decode response: {str(error)}",
+                500
+            )
+        except Exception as error:
+            raise Scraper_Exception(
+                f"Unexpected error during fetch: {str(error)}",
+                500
+            )
+
     def fetch(self, context: Dict[str, Any]) -> str:
         """
         Fetching raw HTML content from the specified MNS page URL.
@@ -157,16 +231,12 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         headers: Dict[str, str] = context.get("headers", {})
         timeout: int = context.get("timeout", self.__default_timeout)
         method: str = context.get("method", "GET")
-
         # Step 3: Construct request
         try:
             request: Request = Request(url, method=method)
-            # Add default headers for HTML scraping
             request.add_header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
             request.add_header("Accept-Language", "en-US,en;q=0.9")
-            request.add_header("User-Agent", "Crawly/1.0 (MNS HTML Scraper)")
-
-            # Add custom headers
+            request.add_header("User-Agent", "Impact Radar/1.0")
             for header_name, header_value in headers.items():
                 if header_name and header_value:
                     request.add_header(header_name, str(header_value))
