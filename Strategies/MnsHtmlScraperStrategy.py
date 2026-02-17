@@ -1,6 +1,6 @@
 from __future__ import annotations
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from urllib.request import _UrlopenRet, Request, urlopen
 from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup, Tag
@@ -459,23 +459,21 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             return False
         return attempt < 3
 
-    # ========== Helper Methods for HTML Extraction ==========
-
-    def _extract_text(self, soup: BeautifulSoup, selector: str) -> str:
+    def _extract_text(self, soup: BeautifulSoup, css_selector: str) -> str:
         """
         Extracting text content using CSS selector.
 
         Parameters:
             soup (BeautifulSoup): The parsed HTML document.
-            selector (str): CSS selector (can be comma-separated for alternatives).
+            css_selector (str): CSS selector (can be comma-separated for alternatives).
 
         Returns:
             str: The extracted text or empty string if not found.
         """
-        selectors: list[str] = [s.strip() for s in selector.split(",")]
-        for sel in selectors:
+        selectors: List[str] = [selector.strip() for selector in css_selector.split(",")]
+        for selector in selectors:
             try:
-                element: Optional[Tag] = soup.select_one(sel)
+                element: Optional[Tag] = soup.select_one(selector)
                 if element:
                     return element.get_text(strip=True)
             except Exception:
