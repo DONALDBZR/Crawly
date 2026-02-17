@@ -303,30 +303,31 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
 
     def extract(self, raw: str) -> Dict[str, Any]:
         """
-        Extracting data fields from raw HTML content using CSS selectors.
+        Extracting structured data from raw HTML content.
 
         Procedures:
-            1. Validates that raw input is not empty.
-            2. Parses raw HTML using BeautifulSoup.
-            3. Extracts fields using configured CSS selectors.
-            4. Extracts metadata (links, images, tables).
-            5. Returns extracted fields as a dictionary.
+            1. Validates that the raw input is a non-empty string.
+            2. Parses the raw HTML into a BeautifulSoup object.
+            3. Extracts fields using default CSS selectors and helper methods.
+            4. Sets a default page title if none is found.
+            5. Returns a dictionary of extracted fields.
 
         Parameters:
             raw (str): The raw HTML response string.
 
         Returns:
-            Dict[str, Any]: Extracted fields containing:
-                - page_title: Extracted page title
-                - main_content: Main content text
-                - extracted_fields: Fields extracted using custom selectors
-                - links: List of links found on the page
-                - images: List of images found on the page
-                - tables: Extracted table data
-                - raw_text: Full text content of the page
+            Dict[str, Any]: A dictionary containing extracted fields such as:
+                - page_title: The title of the page
+                - main_content: The main content of the page
+                - description: The meta description of the page
+                - extracted_fields: A dictionary of additional fields extracted using custom selectors
+                - links: A list of links found on the page
+                - images: A list of images found on the page
+                - tables: A list of tables found on the page
+                - raw_text: The full text content of the page
 
         Raises:
-            Scraper_Exception: If parsing fails or critical fields are missing.
+            Scraper_Exception: If the raw input is invalid or parsing fails.
         """
         self._validate_input(raw)
         soup: BeautifulSoup = self._parse_html(raw)
@@ -343,10 +344,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
                 strip=True
             )
         }
-
-        # Step 4: Validate critical fields
         extracted = self._set_extracted_page_title(extracted)
-
         return extracted
 
     def normalize(self, extracted: Dict[str, Any]) -> Dict[str, Any]:
