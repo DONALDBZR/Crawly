@@ -92,10 +92,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         """
         is_allowed: bool = (timeout > 0 and max_response_size > 0)
         if not is_allowed:
-            raise Scraper_Exception(
-                "Invalid strategy configuration: timeout and max_response_size must be positive.",
-                400
-            )
+            raise Scraper_Exception("Invalid strategy configuration: timeout and max_response_size must be positive.", 400)
 
     def identifier(self) -> str:
         """
