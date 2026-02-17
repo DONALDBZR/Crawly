@@ -36,6 +36,7 @@ python3 main.py --url https://onlinesearch.mns.mu/ --output-format pretty
 - 🔁 **Smart retries** - Exponential backoff for failed requests
 - 🗄️ **MySQL integration** - Connection pooling (programmatic API only)
 - 🛡️ **SQL injection prevention** - Input sanitization built-in
+- ✅ **Startup validation** - Environment variables validated before execution
 - 📊 **Multiple outputs** - JSON, pretty JSON, CSV
 - 📝 **Structured logging** - Debug, info, warn, error levels
 
@@ -112,7 +113,221 @@ DB_POOL_NAME=crawly_pool
 DB_POOL_SIZE=5
 ```
 
-⚠️ **Note:** `.env.example` contains variables for planned features (proxies, rate limiting) not yet implemented. Only `DB_*` variables work currently.
+⚠️ **Note:** `.env.example` contains variables for planned features (proxies, rate limiting) not yet implemented. Only `DB_*` and `LOG_*` variables work currently.
+
+---
+
+## 🔐 Environment Variables
+
+### Overview
+
+Crawly validates environment variables at startup before any side effects occur. **CLI mode** requires only logger configuration (with safe defaults). **Programmatic API with database features** requires database credentials.
+
+### Required Variables (Database API Only)
+
+These variables are **required only when using database features** (programmatic API). The CLI does not need them.
+
+| Variable | Format | Description | Example |
+|----------|--------|-------------|---------|
+| `DB_HOST` | String (hostname/IP) | Database server address | `localhost`, `192.168.1.100` |
+| `DB_USER` | String | Database username | `crawly_user` |
+| `DB_PASSWORD` | String | Database password | `secure_password` |
+| `DB_NAME` | String | Database name | `crawly_db` |
+
+### Optional Variables
+
+These variables have safe defaults and are not required.
+
+#### Database Pool Configuration
+
+| Variable | Format | Default | Description |
+|----------|--------|---------|-------------|
+| `DB_POOL_NAME` | String | `crawly_pool` | Connection pool identifier |
+| `DB_POOL_SIZE` | Integer (≥1) | `5` | Number of connections in pool |
+| `DB_POOL_RESET_SESSION` | Boolean | `true` | Reset session on pool return |
+| `DB_USE_PURE` | Boolean | `true` | Use pure Python MySQL driver |
+
+**Boolean values:** `true`/`false`, `1`/`0`, `yes`/`no` (case-insensitive)
+
+#### Logger Configuration
+
+| Variable | Format | Default | Description |
+|----------|--------|---------|-------------|
+| `LOG_DIRECTORY` | String (path) | `./Logs` | Directory for log files |
+| `LOG_FILE_NAME` | String (filename) | `Crawly.log` | Log file name |
+
+### Local Development Setup
+
+**1. Create `.env` file for CLI-only usage:**
+
+```bash
+# Optional: Override default log location
+LOG_DIRECTORY=./logs
+LOG_FILE_NAME=development.log
+```
+
+**2. Create `.env` file for programmatic API with database:**
+
+```bash
+# Required database credentials
+DB_HOST=localhost
+DB_USER=crawly_dev
+DB_PASSWORD=dev_password
+DB_NAME=crawly_development
+
+# Optional: Pool configuration
+DB_POOL_SIZE=3
+DB_POOL_RESET_SESSION=true
+
+# Optional: Custom logging
+LOG_DIRECTORY=./logs
+LOG_FILE_NAME=crawly_dev.log
+```
+
+**3. Load custom `.env` file:**
+
+```bash
+# CLI: Use --config flag
+python3 main.py --url https://example.com --config .env.production
+
+# Programmatic API: Load before validation
+from dotenv import load_dotenv
+load_dotenv('.env.production')
+```
+
+### Startup Validation
+
+Crawly validates all environment variables at startup **before** initializing logging, database connections, or scraping operations. This ensures fast failure with clear error messages.
+
+**Validation workflow:**
+```
+1. Load .env file (if present)
+2. ✅ Validate environment variables
+3. Initialize logger
+4. Execute scraping/database operations
+```
+
+If validation fails, the application **exits immediately** with:
+- **Exit Code:** `1` (validation error)
+- **Error Output:** Precise diagnostic messages
+
+### Common Configuration Errors
+
+#### ❌ Empty Required Variable
+
+```bash
+DB_HOST=
+```
+
+**Error:**
+```
+❌ Configuration Error: DB_HOST cannot be empty
+```
+
+**Fix:** Provide a non-empty value:
+```bash
+DB_HOST=localhost
+```
+
+---
+
+#### ❌ Invalid Integer Format
+
+```bash
+DB_POOL_SIZE=not_a_number
+```
+
+**Error:**
+```
+❌ Configuration Error: DB_POOL_SIZE must be an integer, got: 'not_a_number'
+```
+
+**Fix:** Use a valid integer:
+```bash
+DB_POOL_SIZE=5
+```
+
+---
+
+#### ❌ Integer Below Minimum
+
+```bash
+DB_POOL_SIZE=0
+```
+
+**Error:**
+```
+❌ Configuration Error: DB_POOL_SIZE must be >= 1, got: 0
+```
+
+**Fix:** Use a positive value:
+```bash
+DB_POOL_SIZE=5
+```
+
+---
+
+#### ❌ Invalid Boolean Format
+
+```bash
+DB_USE_PURE=maybe
+```
+
+**Error:**
+```
+❌ Configuration Error: DB_USE_PURE must be 'true' or 'false' (or '1'/'0'), got: 'maybe'
+```
+
+**Fix:** Use a valid boolean:
+```bash
+DB_USE_PURE=true
+```
+
+---
+
+#### ❌ Missing Database Credentials (API Only)
+
+**Error:**
+```
+❌ Configuration Error: Missing required environment variable: DB_HOST
+❌ Configuration Error: Missing required environment variable: DB_USER
+❌ Configuration Error: Missing required environment variable: DB_PASSWORD
+❌ Configuration Error: Missing required environment variable: DB_NAME
+```
+
+**Fix:** Create `.env` with all required variables:
+```bash
+DB_HOST=localhost
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_NAME=your_database
+```
+
+**Note:** The CLI does **not** require database credentials. Only programmatic API usage with database features needs them.
+
+### Programmatic Validation
+
+For programmatic API usage, call validation explicitly:
+
+```python
+from Models.EnvValidator import Environment_Validator
+import sys
+
+# Validate with database required
+result = Environment_Validator.validate_environment(require_database=True)
+
+if not result.success:
+    for error in result.errors:
+        print(f"❌ Configuration Error: {error}", file=sys.stderr)
+    sys.exit(1)
+
+# Warnings indicate default values used
+for warning in result.warnings:
+    print(f"⚠️  {warning}")
+
+# Proceed with validated configuration
+print(f"✅ Configuration valid")
+```
 
 ---
 
@@ -271,6 +486,10 @@ python3 -m unittest discover tests
 # CLI functionality
 python3 -m unittest tests.test_cli
 
+# Environment variable validation
+python3 -m unittest tests.test_env_validator
+python3 -m unittest tests.test_cli_startup_validation
+
 # Scraping orchestration
 python3 -m unittest tests.test_scraper_orchestrator
 
@@ -296,6 +515,7 @@ python3 -m unittest discover tests -v
 
 **Test coverage:**
 - ✅ CLI argument parsing and validation
+- ✅ Environment variable validation (startup)
 - ✅ Orchestrator retry logic and backoff
 - ✅ HTML scraping and extraction
 - ✅ Database operations and pooling
@@ -355,15 +575,22 @@ python3 main.py --url https://onlinesearch.mns.mu \
 
 **❌ `ValueError: The configuration is invalid for that database server`**
 
-Database credentials missing. If not using DB features, ignore this - CLI doesn't need database.
+Database credentials missing or invalid. If not using database features, ignore this - **CLI doesn't need database**.
 
-For programmatic API, create `.env`:
+For programmatic API with database features:
+1. Ensure all required variables are set (see [Environment Variables](#-environment-variables))
+2. Check for typos in variable names
+3. Verify no empty values
+
 ```bash
+# Required in .env file
 DB_HOST=localhost
 DB_USER=your_user
 DB_PASSWORD=your_password
 DB_NAME=your_db
 ```
+
+For detailed validation errors, see the [Common Configuration Errors](#common-configuration-errors) section.
 
 **❌ Permission denied: `./main.py`**
 
@@ -418,6 +645,7 @@ Crawly/
 ├── Models/                         # Core business logic
 │   ├── ScraperOrchestrator.py     # Orchestrates fetch-extract-normalize pipeline
 │   ├── ScraperStrategy.py         # Abstract strategy interface
+│   ├── EnvValidator.py            # Startup environment variable validation
 │   ├── DatabaseHandler.py         # Database operations with connection pooling
 │   ├── DatabaseConnectionPool.py  # MySQL connection pool manager
 │   ├── DatabaseHandlerFactory.py  # Factory for creating database handlers
@@ -435,8 +663,10 @@ Crawly/
 ├── Errors/
 │   └── Scraper.py                 # Custom exception with traceback
 │
-├── tests/                          # Unit tests (10 test modules)
+├── tests/                          # Unit tests (12 test modules)
 │   ├── test_cli.py
+│   ├── test_env_validator.py
+│   ├── test_cli_startup_validation.py
 │   ├── test_scraper_orchestrator.py
 │   ├── test_mns_html_scraper_strategy.py
 │   └── ...
