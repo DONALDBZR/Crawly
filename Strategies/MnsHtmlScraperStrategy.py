@@ -256,6 +256,19 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         # Last resort: decode with errors replaced
         return raw_data.decode("utf-8", errors="replace")
 
+    def _validate_input(self, raw: str) -> None:
+        """
+        Validating that the raw input is a non-empty string.
+
+        Parameters:
+            raw (str): The raw input string to validate.
+
+        Raises:
+            Scraper_Exception: If the raw input is empty or not a string.
+        """
+        if not raw or not isinstance(raw, str):
+            raise Scraper_Exception("Raw input must be a non-empty string.", 400)
+
     def extract(self, raw: str) -> Dict[str, Any]:
         """
         Extracting data fields from raw HTML content using CSS selectors.
@@ -283,9 +296,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         Raises:
             Scraper_Exception: If parsing fails or critical fields are missing.
         """
-        # Step 1: Validate input
-        if not raw or not isinstance(raw, str):
-            raise Scraper_Exception("Raw input must be a non-empty string.", 400)
+        self._validate_input(raw)
 
         # Step 2: Parse HTML
         try:
