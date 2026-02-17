@@ -1,8 +1,8 @@
 from __future__ import annotations
-import re
 from typing import Any, Dict, Optional, List
-from urllib.request import _UrlopenRet, Request, urlopen
+from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from http.client import HTTPResponse
 from bs4 import BeautifulSoup, Tag
 from Models.ScraperStrategy import Scraper_Strategy
 from Errors.Scraper import Scraper_Exception
@@ -189,7 +189,7 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
             request = self.__add_header(request, "User-Agent", "Impact Radar/1.0")
             for header_name, header_value in headers.items():
                 request = self.__add_header(request, header_name, str(header_value))
-            response: _UrlopenRet = urlopen(
+            response: HTTPResponse = urlopen(
                 request,
                 timeout=timeout
             )
