@@ -433,35 +433,30 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
 
     def should_retry(self, exception: Exception, attempt: int) -> bool:
         """
-        Determining if a fetch should be retried based on exception type and attempt count.
+        Determines if a fetch should be retried based on exception type and attempt count.
 
         Procedures:
-            1. Checks if exception is a Scraper_Exception.
-            2. Evaluates status code to determine if retry is appropriate.
-            3. Returns True for transient errors (5xx, 429), False for client errors (4xx).
-            4. Limits retries to 3 attempts maximum.
+            1. If the attempt count has reached 3, do not retry.
+            2. If the exception is not a Scraper_Exception, allow retry (could be a transient error).
+            3. If the exception is a Scraper_Exception with a code of 500 or 429, allow retry (server error or rate limit).
+            4. If the exception is a Scraper_Exception with a code in the 400 range (except 429), do not retry (client error).
+            5. For all other cases, allow retry if attempt count is less than 3.
 
         Parameters:
-            exception (Exception): The exception raised during fetch.
-            attempt (int): The current attempt number (1-based).
+            exception (Exception): The exception that occurred during fetch.
+            attempt (int): The current attempt count (starting from 1).
 
         Returns:
-            bool: True if retry should be attempted, False otherwise.
+            bool: True if the fetch should be retried, False otherwise.
         """
-        # Limit total attempts
         if attempt >= 3:
             return False
-
-        # Retry on transient errors
-        if isinstance(exception, Scraper_Exception):
-            # Retry on server errors (5xx) and rate limiting (429)
-            if exception.code >= 500 or exception.code == 429:
-                return True
-            # Don't retry on client errors (4xx except 429)
-            if 400 <= exception.code < 500:
-                return False
-
-        # Default: retry on unknown errors
+        if not isinstance(exception, Scraper_Exception):
+            return True
+        if exception.code >= 500 or exception.code == 429:
+            return True
+        if 400 <= exception.code < 500:
+            return False
         return attempt < 3
 
     # ========== Helper Methods for HTML Extraction ==========
