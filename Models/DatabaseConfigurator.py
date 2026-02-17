@@ -38,6 +38,10 @@ class Database_Configurator:
         """
         Creating a `Database_Configurator` instance from environment variables.
 
+        NOTE: For proper configuration validation at startup, use 
+        Environment_Validator.validate_environment(require_database=True) before 
+        calling this method. This validation remains for backward compatibility.
+
         Procedures:
             1. Reads database configuration parameters from environment variables.
             2. Constructs and returns a `Database_Configurator` instance with the retrieved values.
