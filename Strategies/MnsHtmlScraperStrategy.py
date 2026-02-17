@@ -629,7 +629,6 @@ class Mns_Html_Scraper_Strategy(Scraper_Strategy):
         for field_name, selector in selectors.items():
             try:
                 extracted_fields[field_name] = self._extract_text(soup, selector)
-            except Exception as error:
-                # Log but don't fail on individual selector errors
+            except Exception:
                 extracted_fields[field_name] = None
         return extracted_fields
