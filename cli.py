@@ -500,12 +500,13 @@ def main() -> None:
     Procedures:
         1. Parse command-line arguments
         2. Load environment configuration
-        3. Validate arguments
-        4. Initialize logger
-        5. Build execution context
-        6. Execute dry-run or actual scrape
-        7. Format and write output
-        8. Handle errors and exit with appropriate code
+        3. Validate environment variables (startup checkpoint)
+        4. Validate arguments
+        5. Initialize logger
+        6. Build execution context
+        7. Execute dry-run or actual scrape
+        8. Format and write output
+        9. Handle errors and exit with appropriate code
 
     Returns:
         None (exits with status code)
@@ -518,6 +519,20 @@ def main() -> None:
         # Load environment
         if os.path.isfile(args.config):
             load_dotenv(args.config)
+
+        # Validate environment variables before any side effects
+        from Models.EnvValidator import Environment_Validator
+        validation = Environment_Validator.validate_environment(require_database=False)
+        
+        if not validation.success:
+            for error in validation.errors:
+                print(f"❌ Configuration Error: {error}", file=sys.stderr)
+            sys.exit(EXIT_VALIDATION_ERROR)
+        
+        # Log warnings if present
+        if validation.warnings and not args.quiet:
+            for warning in validation.warnings:
+                print(f"⚠️  {warning}", file=sys.stderr)
 
         # Validate arguments
         validate_arguments(args)
